@@ -41,8 +41,8 @@ export function MapLayers({ decorations, playerPosition, activeRegions, lodEnabl
               if (lodEnabled) {
                 const dx = deco.position[0] - playerPosition.x;
                 const dz = deco.position[2] - playerPosition.z;
-                const dist = Math.sqrt(dx * dx + dz * dz);
-                if (dist > deco.lodFar) return null;
+                const lodFar = deco.lodFar ?? Infinity;
+                if (dx * dx + dz * dz > lodFar * lodFar) return null;
               }
 
               return (
@@ -52,7 +52,6 @@ export function MapLayers({ decorations, playerPosition, activeRegions, lodEnabl
                   type={deco.type as any}
                   scale={deco.scale}
                   hasCollision={deco.hasCollision}
-                  lodDistance={deco.lodFar}
                 />
               );
             })}

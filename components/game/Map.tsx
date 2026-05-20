@@ -53,20 +53,11 @@ const DECO_SHADOW_SIZES: Partial<Record<DecoType, number>> = {
   mushroom: 0.4, chest: 0.8,
 };
 
-export function Decoration({ position, scale = 1, type = 'tree', hasCollision = false, lodDistance = 50 }: { position: [number, number, number]; scale?: number; type?: DecoType; hasCollision?: boolean; lodDistance?: number }) {
+export const Decoration = React.memo(function Decoration({ position, scale = 1, type = 'tree', hasCollision = false }: { position: [number, number, number]; scale?: number; type?: DecoType; hasCollision?: boolean }) {
   const variant = useMemo(() => Math.floor(Math.random() * 3), []);
-  const [visible, setVisible] = useState(true);
-  const playerPos = useGameStore((state) => state.position);
 
-  useEffect(() => {
-    const dx = position[0] - playerPos.x;
-    const dz = position[2] - playerPos.z;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    setVisible(dist < lodDistance);
-  }, [position, lodDistance, playerPos.x, playerPos.z]);
-
-  if (!visible) return null;
-
+  // Decoration visibility is handled by the parent MapLayers LOD pass,
+  // so this component remains pure and can skip re-renders when props are stable.
   const shadowSize = DECO_SHADOW_SIZES[type];
   const shadow = shadowSize ? (
     <mesh position={[position[0], 0.01, position[2]]} rotation={[-Math.PI / 2, 0, 0]}>
