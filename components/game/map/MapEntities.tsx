@@ -1,13 +1,22 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useGameStore } from '@/store/useGameStore';
+import { useNetworkStore } from '@/store/useNetworkStore';
 import { SortedEntities } from '../SpriteEntity';
 import { DamageNumbers } from '../DamageNumbers';
 
 export function MapEntities() {
   const enemies = useGameStore((state) => state.enemies);
   const selectedTargetId = useGameStore((state) => state.selectedTargetId);
+  const setSelectedTargetId = useGameStore((state) => state.setSelectedTargetId);
+
+  const handleEntityClick = useCallback((enemyId: string) => {
+    const state = useGameStore.getState();
+    const enemy = state.enemies[enemyId];
+    if (!enemy || enemy.isDead) return;
+    setSelectedTargetId(enemyId);
+  }, [setSelectedTargetId]);
 
   const entityList = useMemo(() => {
     return Object.values(enemies).map(enemy => ({
@@ -19,8 +28,9 @@ export function MapEntities() {
       hpBar: { current: enemy.hp, max: enemy.maxHp },
       nameTag: enemy.name || '',
       isSelected: enemy.id === selectedTargetId,
+      onClick: () => handleEntityClick(enemy.id),
     }));
-  }, [enemies]);
+  }, [enemies, selectedTargetId, handleEntityClick]);
 
   return (
     <group>

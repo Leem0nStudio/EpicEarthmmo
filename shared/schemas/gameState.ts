@@ -59,6 +59,7 @@ export const PlayerStateSchema = z.object({
   stats: PlayerStatsSchema,
   skillPoints: z.number(),
   unlockedSkills: z.array(z.string()),
+  skillLevels: z.record(z.string(), z.number()).optional().default({}),
   inventory: z.array(InventoryItemSchema),
   equippedItems: EquippedItemsSchema.optional(),
 });

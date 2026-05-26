@@ -117,6 +117,7 @@ export const SkillDefinitionSchema = z.object({
   soundId: z.string().optional(),
   vfxId: z.string().optional(),
   icon: z.string().optional(),
+  allowedClasses: z.array(z.string()).optional(),
   maxLevel: z.number().int().positive().default(1),
   levelScaling: z.object({
     spCost: z.number().default(0),

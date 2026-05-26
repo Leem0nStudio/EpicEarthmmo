@@ -228,7 +228,7 @@ export function EquipmentWindow({ onClose }: { onClose: () => void }) {
                         <div className="min-w-0">
                           <h4 className="text-[10px] font-black text-white truncate uppercase leading-tight">{item.name}</h4>
                           <span className="text-[7.5px] font-bold text-slate-500 uppercase leading-none block">
-                            {itemDef?.type === 'weapon' ? 'Weapon' : itemDef?.type === 'shield' ? 'Shield' : itemDef?.type === 'headgear' ? 'Headgear' : 'Gear'}
+                            {itemDef?.equipSlot ? slotConfig[itemDef.equipSlot]?.label || 'Gear' : 'Gear'}
                           </span>
                         </div>
                       </div>
@@ -254,9 +254,7 @@ export function EquipmentWindow({ onClose }: { onClose: () => void }) {
             const itemDef = items.find(i => i.id === selectedItem.id);
             if (!itemDef) return null;
 
-            // Simple heuristics to determine standard slot
-            const desc = (itemDef.description || '').toLowerCase();
-            const slot = desc.includes('shield') ? 'shield' : desc.includes('weapon') || desc.includes('sword') || desc.includes('bow') || desc.includes('dagger') ? 'weapon' : 'armor';
+            const slot = itemDef.equipSlot || 'armor';
 
             return (
               <motion.div

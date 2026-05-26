@@ -22,7 +22,13 @@
     "interruptible": false,
     "movementLock": false,
     "animationId": "attack_basic",
-    "maxLevel": 10
+    "maxLevel": 10,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "bash",
@@ -51,7 +57,14 @@
     "interruptible": false,
     "movementLock": true,
     "animationId": "attack_bash",
-    "maxLevel": 10
+    "allowedClasses": ["swordsman"],
+    "maxLevel": 10,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "provoke",
@@ -80,7 +93,14 @@
     "interruptible": false,
     "movementLock": false,
     "animationId": "taunt",
-    "maxLevel": 5
+    "allowedClasses": ["swordsman"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "magnum_break",
@@ -108,7 +128,14 @@
     "animationId": "magnum_break",
     "vfxId": "fire_aoe",
     "soundId": "fire_explosion",
-    "maxLevel": 10
+    "allowedClasses": ["swordsman"],
+    "maxLevel": 10,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "heal",
@@ -134,7 +161,14 @@
     "movementLock": true,
     "animationId": "heal",
     "vfxId": "heal_glow",
-    "maxLevel": 10
+    "allowedClasses": ["acolyte"],
+    "maxLevel": 10,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "increase_agi",
@@ -160,7 +194,14 @@
     "interruptible": false,
     "movementLock": false,
     "animationId": "buff_agi",
-    "maxLevel": 5
+    "allowedClasses": ["acolyte"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "fire_wall",
@@ -188,7 +229,14 @@
     "movementLock": true,
     "animationId": "fire_wall",
     "vfxId": "fire_wall_vfx",
-    "maxLevel": 5
+    "allowedClasses": ["mage"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "lightning_bolt",
@@ -215,7 +263,14 @@
     "animationId": "lightning_bolt",
     "vfxId": "lightning_vfx",
     "soundId": "lightning_strike",
-    "maxLevel": 10
+    "allowedClasses": ["mage"],
+    "maxLevel": 10,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "frost_diver",
@@ -246,7 +301,13 @@
     "animationId": "frost_diver",
     "vfxId": "freeze_vfx",
     "soundId": "ice_shatter",
-    "maxLevel": 5
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "safety_wall",
@@ -274,7 +335,14 @@
     "movementLock": true,
     "animationId": "safety_wall",
     "vfxId": "safety_wall_vfx",
-    "maxLevel": 5
+    "allowedClasses": ["acolyte"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "cone_attack",
@@ -301,7 +369,14 @@
     "movementLock": true,
     "animationId": "cone_attack",
     "vfxId": "slash_cone",
-    "maxLevel": 5
+    "allowedClasses": ["swordsman"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "chain_lightning",
@@ -330,7 +405,14 @@
     "animationId": "chain_lightning",
     "vfxId": "chain_lightning_vfx",
     "soundId": "lightning_chain",
-    "maxLevel": 5
+    "allowedClasses": ["mage"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "berserk",
@@ -357,6 +439,7 @@
     "movementLock": false,
     "animationId": "berserk",
     "vfxId": "rage_aura",
+    "allowedClasses": ["swordsman"],
     "maxLevel": 1
   },
   {
@@ -389,7 +472,13 @@
     "animationId": "meteor",
     "vfxId": "meteor_vfx",
     "soundId": "meteor_impact",
-    "maxLevel": 5
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "poison",
@@ -417,7 +506,14 @@
     "movementLock": false,
     "animationId": "poison",
     "vfxId": "poison_vfx",
-    "maxLevel": 5
+    "allowedClasses": ["thief"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "steal",
@@ -442,7 +538,14 @@
     "interruptible": false,
     "movementLock": false,
     "animationId": "steal",
-    "maxLevel": 5
+    "allowedClasses": ["thief"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "arrow_shower",
@@ -469,7 +572,14 @@
     "movementLock": true,
     "animationId": "arrow_shower",
     "vfxId": "arrow_cone",
-    "maxLevel": 5
+    "allowedClasses": ["archer"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "improved_concentration",
@@ -496,7 +606,14 @@
     "movementLock": false,
     "animationId": "buff_dex",
     "vfxId": "focus_aura",
-    "maxLevel": 5
+    "allowedClasses": ["archer"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "teleport",
@@ -548,7 +665,14 @@
     "movementLock": false,
     "animationId": "buff_blessing",
     "vfxId": "blessing_glow",
-    "maxLevel": 10
+    "allowedClasses": ["acolyte"],
+    "maxLevel": 10,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "endure",
@@ -575,7 +699,14 @@
     "movementLock": false,
     "animationId": "endure",
     "vfxId": "endure_aura",
-    "maxLevel": 5
+    "allowedClasses": ["swordsman"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "bowling_bash",
@@ -605,7 +736,14 @@
     "movementLock": true,
     "animationId": "bowling_bash",
     "vfxId": "bash_impact",
-    "maxLevel": 10
+    "allowedClasses": ["swordsman"],
+    "maxLevel": 10,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "fire_bolt",
@@ -632,7 +770,14 @@
     "animationId": "fire_bolt",
     "vfxId": "fire_projectile",
     "soundId": "fire_whoosh",
-    "maxLevel": 10
+    "allowedClasses": ["mage"],
+    "maxLevel": 10,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "cold_bolt",
@@ -663,7 +808,14 @@
     "animationId": "cold_bolt",
     "vfxId": "ice_projectile",
     "soundId": "ice_shatter",
-    "maxLevel": 5
+    "allowedClasses": ["mage"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   },
   {
     "id": "cart_revolution",
@@ -690,6 +842,13 @@
     "movementLock": true,
     "animationId": "cart_revolution",
     "vfxId": "spin_slash",
-    "maxLevel": 5
+    "allowedClasses": ["merchant"],
+    "maxLevel": 5,
+    "levelScaling": {
+      "spCost": 1,
+      "cooldownMs": 0,
+      "damageMultiplier": 0.1,
+      "durationMultiplier": 0
+    }
   }
 ]

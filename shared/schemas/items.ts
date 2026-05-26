@@ -17,6 +17,7 @@ export const ItemSchema = z.object({
   maxStack: z.number().int().positive(),
   icon: z.string().optional(),
   rarity: z.number().int().min(0).max(4).default(0),
+  equipSlot: z.enum(['weapon', 'armor', 'shield', 'headTop', 'shoes', 'accessory1']).optional(),
   atk: z.number().nonnegative().optional(),
   matk: z.number().nonnegative().optional(),
   def: z.number().nonnegative().optional(),

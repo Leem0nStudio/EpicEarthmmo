@@ -27,6 +27,7 @@ export interface ServerPlayer {
   jobExp: number;
   unlockedSkills: string[];
   skillPoints: number;
+  skillLevels: Record<string, number>;
   lastAttackTime: number;
   inputQueue: PlayerInput[];
   lastProcessedSeq: number;

@@ -16,6 +16,7 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
   const [selectedSkill, setSelectedSkill] = useState<any>(null);
 
   if (!player) return null;
+  const skillLevels = player.skillLevels ?? {};
 
   return (
     <Modal
@@ -60,9 +61,12 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
           <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
             {skills.map((skill, index) => {
               const unlocked = player.unlockedSkills || [];
-              const isUnlocked = unlocked.includes(skill.id) || skill.skillPointCost === 0;
-              const meetsReqs = (skill.requirements || []).every((r: string) => unlocked.includes(r) || r === 'basic_attack');
-              const canUnlock = !isUnlocked && meetsReqs && player.skillPoints >= skill.skillPointCost;
+              const curLevel = skillLevels[skill.id] ?? 0;
+              const isUnlocked = curLevel > 0 || skill.skillPointCost === 0;
+              const isMaxLevel = curLevel >= skill.maxLevel;
+              const classAllowed = !skill.allowedClasses || skill.allowedClasses.length === 0 || skill.allowedClasses.includes(player.jobClass.toLowerCase());
+              const meetsReqs = classAllowed && (skill.requirements || []).every((r: string) => unlocked.includes(r) || r === 'basic_attack');
+              const canUnlock = meetsReqs && !isMaxLevel && player.skillPoints >= skill.skillPointCost;
               const isSelected = selectedSkill?.id === skill.id;
 
               return (
@@ -76,6 +80,7 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
                   className={cn(
                     "p-2 rounded-xl border flex items-center justify-between gap-2 transition-all duration-200 cursor-pointer select-none min-h-[46px]",
                     isUnlocked ? "bg-emerald-950/10 border-emerald-500/20 hover:border-emerald-500/30" : 
+                    !classAllowed ? "bg-red-950/10 border-red-900/30 opacity-60" :
                     meetsReqs ? "bg-slate-900/40 border-slate-700 hover:border-indigo-500/30" : 
                     "bg-slate-950/20 border-slate-900/50 opacity-40 hover:opacity-50",
                     isSelected && "border-indigo-400 bg-indigo-500/10 shadow-[0_0_8px_rgba(99,102,241,0.2)]"
@@ -112,9 +117,30 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
 
                   {/* Actions / Status Indicators */}
                   <div className="shrink-0">
-                    {isUnlocked ? (
-                      <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                        <Check size={11} strokeWidth={3} />
+                    {isMaxLevel ? (
+                      <div className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase border border-amber-500/30 bg-amber-500/10 text-amber-400 leading-none">
+                        MAX
+                      </div>
+                    ) : isUnlocked ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] font-bold text-emerald-400 leading-none">{curLevel}</span>
+                        <span className="text-[7px] text-slate-500">/</span>
+                        <span className="text-[7px] text-slate-500">{skill.maxLevel}</span>
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            unlockSkill(skill.id, skill.skillPointCost);
+                          }}
+                          className="w-5 h-5 rounded bg-indigo-600/80 text-white flex items-center justify-center hover:bg-indigo-500 transition-all active:scale-95 cursor-pointer ml-1"
+                          title={`Level up (${skill.skillPointCost} SP)`}
+                        >
+                          <Plus size={10} strokeWidth={3} />
+                        </motion.button>
+                      </div>
+                    ) : !classAllowed ? (
+                      <div className="px-1.5 py-0.5 rounded text-[7px] font-bold uppercase border border-red-900/30 bg-red-950/20 text-red-400 leading-none">
+                        Class
                       </div>
                     ) : !meetsReqs ? (
                       <div className="w-6 h-6 rounded-lg bg-slate-950/40 border border-slate-800 flex items-center justify-center text-slate-600">
@@ -173,7 +199,12 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-1">
                     <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Requirements</span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                       {(selectedSkill.allowedClasses && selectedSkill.allowedClasses.length > 0) && (
+                         <Badge variant="locked" size="xs">
+                           {selectedSkill.allowedClasses.join('/')}
+                         </Badge>
+                       )}
                        {(selectedSkill.requirements || []).map((req: string) => (
                          <Badge key={req} variant={(player.unlockedSkills || []).includes(req) ? "success" : "default"} size="xs">
                             {req.replace('_', ' ')}
@@ -182,10 +213,22 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
                     </div>
                   </div>
 
-                  {(player.unlockedSkills || []).includes(selectedSkill.id) ? (
-                    <Badge variant="success" size="md" className="h-10 px-6 rounded-full bg-emerald-500/20 border-emerald-500/30 font-black">
-                      MASTERED
-                    </Badge>
+                  {(skillLevels[selectedSkill.id] ?? 0) > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-emerald-400">
+                        Lv. {skillLevels[selectedSkill.id] ?? 1} / {selectedSkill.maxLevel}
+                      </span>
+                      {(skillLevels[selectedSkill.id] ?? 0) < selectedSkill.maxLevel && (
+                        <Button
+                          variant="primary"
+                          disabled={player.skillPoints < selectedSkill.skillPointCost}
+                          onClick={() => unlockSkill(selectedSkill.id, selectedSkill.skillPointCost)}
+                          className="h-10 px-5 rounded-full font-black text-xs shadow-xl"
+                        >
+                          Level Up
+                        </Button>
+                      )}
+                    </div>
                   ) : (
                     <Button
                       variant={player.skillPoints >= selectedSkill.skillPointCost && (selectedSkill.requirements || []).every((r: string) => (player.unlockedSkills || []).includes(r) || r === 'basic_attack') ? "primary" : "secondary"}

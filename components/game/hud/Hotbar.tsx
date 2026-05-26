@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { useNetworkStore } from '@/store/useNetworkStore';
 import { gameData } from '@/shared/loader';
@@ -17,11 +17,13 @@ export function Hotbar() {
   const skillCooldowns = useGameStore((state) => state.skillCooldowns);
   const selectedTargetId = useGameStore((state) => state.selectedTargetId);
   const position = useGameStore((state) => state.position);
-  
+  const setActiveSkill = useGameStore((state) => state.setActiveSkill);
+
   const attackTarget = useNetworkStore((state) => state.attackTarget);
   const castSkill = useNetworkStore((state) => state.castSkill);
   const consumeItem = useGameStore((state) => state.consumeItem);
-  
+  const setSkillCooldown = useGameStore((state) => state.setSkillCooldown);
+
   const [now, setNow] = useState(Date.now());
 
   // Keep cooldowns ticking accurately
@@ -29,6 +31,52 @@ export function Hotbar() {
     const interval = setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(interval);
   }, []);
+
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const gs = useGameStore.getState();
+      const ns = useNetworkStore.getState();
+      if (!gs.player) return;
+      const skillsList = (gs.player.unlockedSkills || []).slice(0, 4);
+      const itemsList = (gs.player.inventory || []).filter(i => i.type === 'usable' && i.amount > 0).slice(0, 3);
+
+      if (e.key === 'F1') { e.preventDefault(); triggerSkillShortcut(skillsList[0]); }
+      else if (e.key === 'F2') { e.preventDefault(); triggerSkillShortcut(skillsList[1]); }
+      else if (e.key === 'F3') { e.preventDefault(); triggerSkillShortcut(skillsList[2]); }
+      else if (e.key === 'F4') { e.preventDefault(); triggerSkillShortcut(skillsList[3]); }
+      else if (e.key === '1') { e.preventDefault(); consumeItem(itemsList[0]?.id); }
+      else if (e.key === '2') { e.preventDefault(); consumeItem(itemsList[1]?.id); }
+      else if (e.key === '3') { e.preventDefault(); consumeItem(itemsList[2]?.id); }
+      else if (e.key === 'Escape') {
+        e.preventDefault();
+        gs.setActiveSkill(null);
+        gs.setSelectedTargetId(null);
+      }
+    };
+
+    function triggerSkillShortcut(skillId: string | undefined) {
+      if (!skillId) return;
+      const gs = useGameStore.getState();
+      const gActiveSkill = gs.activeSkill;
+      if (gActiveSkill === skillId) {
+        gs.setActiveSkill(null);
+        return;
+      }
+      gs.setActiveSkill(skillId);
+      // If target exists, cast immediately
+      const skillDef = skills.find(s => s.id === skillId);
+      if (skillDef && gs.selectedTargetId) {
+        const cd = gs.skillCooldowns[skillId] ?? 0;
+        if (Date.now() < cd) return;
+        if (gs.player.sp < skillDef.spCost) return;
+        performSkillCast(skillId, skillDef, gs, ns);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [consumeItem]);
 
   if (!player) return null;
 
@@ -43,42 +91,75 @@ export function Hotbar() {
     return (player.unlockedSkills || []).slice(0, 4);
   }, [player.unlockedSkills]);
 
-  const handleAttack = () => {
-    if (selectedTargetId) {
-      attackTarget(selectedTargetId);
-    } else {
-      showToast('Select a target first!', 'info');
-    }
-  };
-
-  const handleSkillClick = (skillId: string) => {
-    const skillDef = skills.find((s) => s.id === skillId);
-    if (!skillDef) return;
-
-    if (player.sp < skillDef.spCost) {
-      showToast('Not enough SP', 'error');
-      return;
-    }
-
+  const performSkillCast = useCallback((skillId: string, skillDef: any, gs: any, ns: any) => {
     const targetType = skillDef.targetType;
-
+    const cd = gs.skillCooldowns[skillId] ?? 0;
+    if (Date.now() < cd) return;
     if (targetType === 'self') {
       castSkill(skillId);
       return;
     }
-
-    if (selectedTargetId && (targetType === 'single_enemy' || targetType === 'single_ally')) {
-      castSkill(skillId, selectedTargetId);
+    if (gs.selectedTargetId && (targetType === 'single_enemy' || targetType === 'single_ally')) {
+      castSkill(skillId, gs.selectedTargetId);
       return;
     }
-
     if (targetType === 'aoe_enemy' || targetType === 'aoe_ally' || targetType === 'ground_target') {
-      castSkill(skillId, undefined, position.x, position.z);
+      castSkill(skillId, undefined, gs.position.x, gs.position.z);
+      return;
+    }
+    castSkill(skillId, gs.selectedTargetId ?? undefined);
+  }, [castSkill]);
+
+  const handleAttack = useCallback(() => {
+    const gs = useGameStore.getState();
+    if (!gs.selectedTargetId) {
+      showToast('Select a target first!', 'info');
+      return;
+    }
+    // If active skill is set, cast it instead of basic attack
+    if (gs.activeSkill) {
+      const skillDef = skills.find(s => s.id === gs.activeSkill);
+      if (skillDef) {
+        const cd = gs.skillCooldowns[gs.activeSkill] ?? 0;
+        if (Date.now() >= cd && gs.player.sp >= skillDef.spCost) {
+          performSkillCast(gs.activeSkill, skillDef, gs, useNetworkStore.getState());
+          return;
+        }
+      }
+    }
+    attackTarget(gs.selectedTargetId);
+  }, [attackTarget, performSkillCast]);
+
+  const handleSkillClick = useCallback((skillId: string) => {
+    const gs = useGameStore.getState();
+    const skillDef = skills.find((s) => s.id === skillId);
+    if (!skillDef) return;
+
+    // Toggle skill active mode
+    if (gs.activeSkill === skillId) {
+      setActiveSkill(null);
       return;
     }
 
-    castSkill(skillId, selectedTargetId ?? undefined);
-  };
+    if (gs.player.sp < skillDef.spCost) {
+      showToast('Not enough SP', 'error');
+      return;
+    }
+
+    const cd = gs.skillCooldowns[skillId] ?? 0;
+    if (Date.now() < cd) {
+      showToast('Skill on cooldown', 'error');
+      return;
+    }
+
+    // Set as active skill
+    setActiveSkill(skillId);
+
+    // If target exists, cast immediately
+    if (gs.selectedTargetId) {
+      performSkillCast(skillId, skillDef, gs, useNetworkStore.getState());
+    }
+  }, [setActiveSkill, performSkillCast]);
 
   // ERGONOMIC CALCULATIONS FOR CONCENTRIC ARCS
   // Center of Attack Button is right: 36px, bottom: 36px
@@ -139,7 +220,7 @@ export function Hotbar() {
           whileTap={{ scale: 0.92 }}
           onClick={handleAttack}
           className={cn(
-            "w-[68px] h-[68px] rounded-full flex items-center justify-center border-2 shadow-2xl relative cursor-pointer outline-none transition-all duration-300",
+            "w-[72px] h-[72px] rounded-full flex items-center justify-center border-2 shadow-2xl relative cursor-pointer outline-none transition-all duration-300",
             selectedTargetId
               ? "bg-gradient-to-b from-red-500 to-red-700 border-red-300 shadow-[0_0_24px_rgba(239,68,68,0.6)]"
               : "bg-slate-900/90 border-slate-700 text-slate-500 grayscale opacity-80"
@@ -178,7 +259,7 @@ export function Hotbar() {
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => consumeItem(item.id)}
-                className="w-10 h-10 rounded-full flex items-center justify-center border border-slate-700/60 bg-slate-950/80 shadow-xl cursor-pointer relative overflow-hidden backdrop-blur-md"
+                className="w-[44px] h-[44px] rounded-full flex items-center justify-center border border-slate-700/60 bg-slate-950/80 shadow-xl cursor-pointer relative overflow-hidden backdrop-blur-md"
               >
                 <GameIcon
                   iconType="item"
@@ -235,7 +316,7 @@ export function Hotbar() {
                 onClick={() => !onCooldown && handleSkillClick(skillId)}
                 disabled={onCooldown}
                 className={cn(
-                  "w-[42px] h-[42px] rounded-full flex flex-col items-center justify-center border shadow-xl relative overflow-hidden transition-all duration-200 cursor-pointer backdrop-blur-md",
+                  "w-[48px] h-[48px] rounded-full flex flex-col items-center justify-center border shadow-xl relative overflow-hidden transition-all duration-200 cursor-pointer backdrop-blur-md",
                   onCooldown && "cursor-not-allowed border-slate-800",
                   isActive
                     ? "bg-amber-500/25 border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.4)]"

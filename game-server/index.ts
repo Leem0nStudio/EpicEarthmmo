@@ -67,6 +67,37 @@ function isChestAvailable(mapId: string, chestId: string) {
   return false;
 }
 
+function getEquipmentStats(p: ServerPlayer): {
+  totalAtk: number; totalMatk: number; totalDef: number; totalMDef: number;
+  statBonus: { str: number; agi: number; vit: number; int: number; dex: number; luk: number };
+} {
+  let totalAtk = 0;
+  let totalMatk = 0;
+  let totalDef = 0;
+  let totalMDef = 0;
+  const statBonus = { str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 };
+  if (!p.equippedItems) return { totalAtk, totalMatk, totalDef, totalMDef, statBonus };
+  for (const itemId of Object.values(p.equippedItems)) {
+    if (!itemId) continue;
+    const itemDef = items.find(i => i.id === itemId);
+    if (!itemDef) continue;
+    if (itemDef.atk) totalAtk = Math.max(totalAtk, itemDef.atk);
+    if (itemDef.matk) totalMatk = Math.max(totalMatk, itemDef.matk);
+    if (itemDef.def) totalDef += itemDef.def;
+    if (itemDef.mdef) totalMDef += itemDef.mdef;
+    const es = itemDef.equipStats;
+    if (es) {
+      if (es.str) statBonus.str += es.str;
+      if (es.agi) statBonus.agi += es.agi;
+      if (es.vit) statBonus.vit += es.vit;
+      if (es.int) statBonus.int += es.int;
+      if (es.dex) statBonus.dex += es.dex;
+      if (es.luk) statBonus.luk += es.luk;
+    }
+  }
+  return { totalAtk, totalMatk, totalDef, totalMDef, statBonus };
+}
+
 function markChestOpened(mapId: string, chestId: string, respawnSeconds: number) {
   const state = getChestState(mapId);
   state.set(chestId, Date.now() + respawnSeconds * 1000);
@@ -195,6 +226,7 @@ function createDefaultPlayer(id: string, name: string): ServerPlayer {
     jobClass: 'novice',
     unlockedSkills: [],
     skillPoints: defaultPlayer.skillPoints,
+    skillLevels: {},
     lastAttackTime: 0,
     vx: 0, vz: 0,
     inputQueue: [],
@@ -216,6 +248,15 @@ function createDefaultPlayer(id: string, name: string): ServerPlayer {
 function isSkillUnlocked(player: ServerPlayer, skillId: string): boolean {
   if (skillId === 'basic_attack') return true;
   return player.unlockedSkills.includes(skillId);
+}
+
+function canUseSkill(player: ServerPlayer, skillId: string): boolean {
+  const skill = skills.find(s => s.id === skillId);
+  if (!skill) return false;
+  if (skill.allowedClasses && skill.allowedClasses.length > 0) {
+    if (!skill.allowedClasses.includes(player.jobClass)) return false;
+  }
+  return isSkillUnlocked(player, skillId);
 }
 
 function distSq(a: { x: number; z: number }, b: { x: number; z: number }): number {
@@ -243,7 +284,7 @@ function processServerLevelUp(player: ServerPlayer, socket: any, io: any): void 
   const result = processLevelUp(
     player.baseExp, player.jobExp,
     player.baseLevel, player.jobLevel,
-    player.stats?.base ?? {},
+    player.stats ?? {},
     balance,
   );
   if (!result.leveledUp) return;
@@ -261,8 +302,15 @@ function processServerLevelUp(player: ServerPlayer, socket: any, io: any): void 
   player.maxSp += spFromClass;
   player.hp = player.maxHp;
   player.sp = player.maxSp;
-  player.stats!.points = (player.stats?.points ?? 0) + spGainFromClass;
+  player.stats!.statPoints = (player.stats?.statPoints ?? 0) + spGainFromClass;
   player.skillPoints = (player.skillPoints ?? 0) + result.skillPointsGain;
+
+  // Milestone bonus: bonus stat points at milestone levels
+  const milestoneLevels = balance.progression?.milestoneLevels ?? [];
+  const milestoneBonus = balance.progression?.milestoneBonusPerStat ?? 0;
+  if (milestoneBonus > 0 && milestoneLevels.includes(result.baseLevel)) {
+    player.stats!.statPoints += milestoneBonus;
+  }
 
   socket.emit('levelUp', {
     baseLevel: result.baseLevel,
@@ -392,7 +440,7 @@ io.on('connection', (socket) => {
     mapManager.provokeEnemy(enemy, socket.id, now);
 
     // ── Determine effective skill for this attack ──
-    const effectiveSkillId = data.skillId && isSkillUnlocked(player, data.skillId) ? data.skillId : 'basic_attack';
+    const effectiveSkillId = data.skillId && canUseSkill(player, data.skillId) ? data.skillId : 'basic_attack';
     const skillDef = skillEngine.getSkillDefinition(effectiveSkillId);
 
     // ── Per-skill cooldown check ──
@@ -426,15 +474,11 @@ io.on('connection', (socket) => {
     player.sp -= skillSpCost;
     if (skillSpCost > 0) usedSkill = true;
 
-    // ── Compute ATK from STR + weapon ──
-    let weaponAtk = balance.defaultPlayer.baseAtkBareHands ?? 5;
-    if (player.equippedItems) {
-      for (const itemId of Object.values(player.equippedItems)) {
-        const itemDef = items.find(i => i.id === itemId);
-        if (itemDef?.atk) weaponAtk = Math.max(weaponAtk, itemDef.atk);
-      }
-    }
-    const atk = calculateAtk(player.stats.str ?? 0, player.baseLevel || 1, weaponAtk);
+    // ── Compute ATK from STR + equipment ──
+    const equipStats = getEquipmentStats(player);
+    const weaponAtk = Math.max(balance.defaultPlayer.baseAtkBareHands ?? 5, equipStats.totalAtk);
+    const effectiveStr = (player.stats.str ?? 0) + equipStats.statBonus.str;
+    const atk = calculateAtk(effectiveStr, player.baseLevel || 1, weaponAtk);
 
     // ── Hit / Flee check, with consecutive miss pity ──
     const hit = calculateHit(player.stats.dex ?? 0, player.baseLevel || 1, balance);
@@ -555,16 +599,22 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (!canUseSkill(player, data.skillId)) {
+      callback?.({ success: false, error: 'Skill not available for your class.' });
+      return;
+    }
+
     const instance = mapManager.getMap(player.currentMapId);
     if (!instance) return;
 
+    const skillEquipStats = getEquipmentStats(player);
     const casterStats: Record<string, number> = {
-      str: player.stats.str,
-      agi: player.stats.agi,
-      vit: player.stats.vit,
-      int: player.stats.int,
-      dex: player.stats.dex,
-      luk: player.stats.luk,
+      str: (player.stats.str ?? 0) + skillEquipStats.statBonus.str,
+      agi: (player.stats.agi ?? 0) + skillEquipStats.statBonus.agi,
+      vit: (player.stats.vit ?? 0) + skillEquipStats.statBonus.vit,
+      int: (player.stats.int ?? 0) + skillEquipStats.statBonus.int,
+      dex: (player.stats.dex ?? 0) + skillEquipStats.statBonus.dex,
+      luk: (player.stats.luk ?? 0) + skillEquipStats.statBonus.luk,
       maxHp: player.maxHp,
     };
 
@@ -579,6 +629,7 @@ io.on('connection', (socket) => {
       casterPosition: { x: player.x, y: player.y, z: player.z },
       casterStats,
       casterLevel: player.baseLevel,
+      skillLevel: player.skillLevels?.[data.skillId] ?? 1,
       sp: player.sp,
       hp: player.hp,
     };
@@ -711,13 +762,14 @@ io.on('connection', (socket) => {
     const instance = mapManager.getMap(player.currentMapId);
     if (!instance) return;
 
+    const skillEquipStats = getEquipmentStats(player);
     const casterStats: Record<string, number> = {
-      str: player.stats.str,
-      agi: player.stats.agi,
-      vit: player.stats.vit,
-      int: player.stats.int,
-      dex: player.stats.dex,
-      luk: player.stats.luk,
+      str: (player.stats.str ?? 0) + skillEquipStats.statBonus.str,
+      agi: (player.stats.agi ?? 0) + skillEquipStats.statBonus.agi,
+      vit: (player.stats.vit ?? 0) + skillEquipStats.statBonus.vit,
+      int: (player.stats.int ?? 0) + skillEquipStats.statBonus.int,
+      dex: (player.stats.dex ?? 0) + skillEquipStats.statBonus.dex,
+      luk: (player.stats.luk ?? 0) + skillEquipStats.statBonus.luk,
       maxHp: player.maxHp,
     };
 
@@ -727,6 +779,7 @@ io.on('connection', (socket) => {
       casterPosition: { x: player.x, y: player.y, z: player.z },
       casterStats,
       casterLevel: player.baseLevel,
+      skillLevel: player.skillLevels?.[data.skillId] ?? 1,
       sp: player.sp,
       hp: player.hp,
     };
@@ -869,7 +922,15 @@ io.on('connection', (socket) => {
     player.jobClass = data.newJob;
     player.jobLevel = 1;
     player.jobExp = 0;
-    player.unlockedSkills = [];
+    // Keep universal skills, grant autoLearnSkills from new job
+    player.unlockedSkills = ['basic_attack', 'teleport'];
+    if (jobDef.autoLearnSkills) {
+      for (const skillId of jobDef.autoLearnSkills) {
+        if (!player.unlockedSkills.includes(skillId)) {
+          player.unlockedSkills.push(skillId);
+        }
+      }
+    }
     player.skillPoints += jobDef.bonusSkillPoints;
 
     player.stats.str += jobDef.baseStatModifiers.str;
@@ -884,37 +945,92 @@ io.on('connection', (socket) => {
 
   socket.on('allocateStat', (data: { stat: string; statPoints?: number }, callback?: (res: { success: boolean; stats?: any; error?: string }) => void) => {
     if (!player) return;
-    if (data.stat === 'statPoints') { callback?.({ success: false, error: 'Cannot allocate statPoints directly.' }); return; }
+    const validStats = ['str', 'agi', 'vit', 'int', 'dex', 'luk'];
+    if (!validStats.includes(data.stat)) { callback?.({ success: false, error: 'Invalid stat.' }); return; }
 
-    if (data.statPoints !== undefined) player.stats.statPoints = Math.max(0, data.statPoints);
     if (player.stats.statPoints <= 0) { callback?.({ success: false, error: 'No stat points available.' }); return; }
     if (player.stats[data.stat as keyof typeof player.stats] >= balance.stats.cap) { callback?.({ success: false, error: `Stat ${data.stat} is at max (${balance.stats.cap}).` }); return; }
 
     const statKey = data.stat as keyof typeof player.stats;
-    if (statKey !== 'statPoints') {
-      (player.stats[statKey] as number) += 1;
-    }
+    (player.stats[statKey] as number) += 1;
     player.stats.statPoints -= 1;
     callback?.({ success: true, stats: { ...player.stats } });
   });
 
-  socket.on('unlockSkill', (data: { skillId: string; skillPoints?: number }, callback?: (res: { success: boolean; unlockedSkills?: string[]; skillPoints?: number; error?: string }) => void) => {
+  socket.on('unlockSkill', (data: { skillId: string; skillPoints?: number }, callback?: (res: { success: boolean; unlockedSkills?: string[]; skillLevels?: Record<string, number>; skillPoints?: number; error?: string }) => void) => {
     if (!player) return;
 
     const skill = skills.find(s => s.id === data.skillId);
     if (!skill) { callback?.({ success: false, error: 'Skill not found.' }); return; }
-    if (player.unlockedSkills.includes(data.skillId)) { callback?.({ success: false, error: 'Skill already unlocked.' }); return; }
+
+    if (skill.allowedClasses && skill.allowedClasses.length > 0 && !skill.allowedClasses.includes(player.jobClass)) {
+      callback?.({ success: false, error: `Skill requires class: ${skill.allowedClasses.join(', ')}.` }); return;
+    }
 
     if (data.skillPoints !== undefined) player.skillPoints = Math.max(0, data.skillPoints);
+
+    const currentLevel = player.skillLevels?.[data.skillId] ?? 0;
+    if (currentLevel >= skill.maxLevel) { callback?.({ success: false, error: 'Skill already at max level.' }); return; }
+
     if (player.skillPoints < skill.skillPointCost) { callback?.({ success: false, error: 'Not enough skill points.' }); return; }
 
     for (const req of skill.requirements) {
-      if (!isSkillUnlocked(player, req)) { callback?.({ success: false, error: `Requires ${req}.` }); return; }
+      if (req === data.skillId) continue;
+      const reqLevel = player.skillLevels?.[req] ?? (player.unlockedSkills.includes(req) ? 1 : 0);
+      if (reqLevel < 1) { callback?.({ success: false, error: `Requires ${req}.` }); return; }
     }
 
-    player.unlockedSkills.push(data.skillId);
+    if (!player.skillLevels) player.skillLevels = {};
+    player.skillLevels[data.skillId] = currentLevel + 1;
+    if (!player.unlockedSkills.includes(data.skillId)) {
+      player.unlockedSkills.push(data.skillId);
+    }
     player.skillPoints -= skill.skillPointCost;
-    callback?.({ success: true, unlockedSkills: [...player.unlockedSkills], skillPoints: player.skillPoints });
+    callback?.({ success: true, unlockedSkills: [...player.unlockedSkills], skillLevels: { ...player.skillLevels }, skillPoints: player.skillPoints });
+  });
+
+  socket.on('equipItem', (data: { itemId: string; slot: string }, callback?: (res: { success: boolean; error?: string }) => void) => {
+    if (!player) return;
+    const itemDef = items.find(i => i.id === data.itemId);
+    if (!itemDef || itemDef.type !== 'equip') { callback?.({ success: false, error: 'Item not found or not equippable.' }); return; }
+    if (itemDef.levelReq && player.baseLevel < itemDef.levelReq) { callback?.({ success: false, error: `Requires level ${itemDef.levelReq}.` }); return; }
+
+    const invSlot = player.inventory.find(s => s.itemId === data.itemId);
+    if (!invSlot || invSlot.amount < 1) { callback?.({ success: false, error: 'Item not in inventory.' }); return; }
+
+    const validSlots = ['weapon', 'armor', 'shield', 'headTop', 'shoes', 'accessory1'];
+    if (!validSlots.includes(data.slot)) { callback?.({ success: false, error: 'Invalid equipment slot.' }); return; }
+
+    if (!player.equippedItems) player.equippedItems = {};
+    const currentEquipped = player.equippedItems[data.slot as keyof typeof player.equippedItems];
+    if (currentEquipped) {
+      const existingSlot = player.inventory.find(s => s.itemId === currentEquipped);
+      if (existingSlot) existingSlot.amount += 1;
+      else player.inventory.push({ itemId: currentEquipped, amount: 1 });
+    }
+
+    invSlot.amount -= 1;
+    if (invSlot.amount <= 0) {
+      const idx = player.inventory.indexOf(invSlot);
+      if (idx !== -1) player.inventory.splice(idx, 1);
+    }
+
+    player.equippedItems[data.slot as keyof typeof player.equippedItems] = data.itemId;
+    callback?.({ success: true });
+  });
+
+  socket.on('unequipItem', (data: { slot: string }, callback?: (res: { success: boolean; error?: string }) => void) => {
+    if (!player) return;
+    if (!player.equippedItems) { callback?.({ success: false, error: 'No equipment.' }); return; }
+    const itemId = player.equippedItems[data.slot as keyof typeof player.equippedItems];
+    if (!itemId) { callback?.({ success: false, error: 'Nothing equipped in that slot.' }); return; }
+
+    const existingInv = player.inventory.find(s => s.itemId === itemId);
+    if (existingInv) existingInv.amount += 1;
+    else player.inventory.push({ itemId, amount: 1 });
+
+    delete player.equippedItems[data.slot as keyof typeof player.equippedItems];
+    callback?.({ success: true });
   });
 
   type TradeItem = { itemId: string; amount: number };
@@ -1738,7 +1854,9 @@ function tick() {
 
       // Enemy damage formula: enemy.attackDamage - player DEF (capped at 30% min)
       const defReduction = balance.combat.damageReduction;
-      const playerDef = calculateDef(targetPlayer.stats.vit ?? 0);
+      const equipStats = getEquipmentStats(targetPlayer);
+      const effectiveVit = (targetPlayer.stats.vit ?? 0) + equipStats.statBonus.vit;
+      const playerDef = calculateDef(effectiveVit, equipStats.totalDef);
       const reduction = playerDef * (defReduction?.defMultiplier ?? 0.6);
       const minDmg = enemy.attackDamage * (defReduction?.minDamagePct ?? 0.3);
       const variance = Math.floor(Math.random() * 3) - 1;

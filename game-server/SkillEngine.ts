@@ -17,6 +17,7 @@ export interface SkillCastRequest {
   casterPosition: { x: number; y: number; z: number };
   casterStats: Record<string, number>;
   casterLevel: number;
+  skillLevel?: number;
   sp: number;
   hp: number;
 }
@@ -259,7 +260,7 @@ export class SkillEngine {
       let perTargetHeal = 0;
 
       for (const effect of skill.effects) {
-        const effectResult = this.applyEffect(effect, request, target);
+        const effectResult = this.applyEffect(effect, request, target, skill);
 
         if (effectResult.damage) {
           perTargetDamage += effectResult.damage;
@@ -410,6 +411,7 @@ export class SkillEngine {
     effect: EffectDefinition,
     request: SkillCastRequest,
     target: { id: string; x: number; z: number; isAlly: boolean },
+    skillDef?: SkillDefinition,
   ): { damage?: number; heal?: number; isCritical?: boolean; buffApplied?: string; groundEffectId?: string; knockbackTarget?: { x: number; z: number } } {
     const result: { damage?: number; heal?: number; isCritical?: boolean; buffApplied?: string; groundEffectId?: string; knockbackTarget?: { x: number; z: number } } = {};
 
@@ -417,7 +419,7 @@ export class SkillEngine {
       case 'damage':
       case 'aoe_damage': {
         if (effect.formula) {
-          const value = this.calculateFormula(effect.formula, request);
+          const value = this.calculateFormula(effect.formula, request, skillDef);
           const critChance = effect.formula.critChance + (request.casterStats.luk ?? 0) * 0.005;
           const isCrit = Math.random() < critChance;
           const finalDamage = isCrit ? Math.floor(value * effect.formula.critMultiplier) : Math.floor(value);
@@ -429,14 +431,14 @@ export class SkillEngine {
       case 'heal':
       case 'aoe_heal': {
         if (effect.formula) {
-          result.heal = Math.floor(this.calculateFormula(effect.formula, request));
+          result.heal = Math.floor(this.calculateFormula(effect.formula, request, skillDef));
         }
         break;
       }
       case 'hot': {
         if (effect.formula) {
           const hotBuffId = `hot_${request.skillId}`;
-          const tickDmg = Math.floor(this.calculateFormula(effect.formula, request));
+          const tickDmg = Math.floor(this.calculateFormula(effect.formula, request, skillDef));
           const def: BuffDefinition = {
             id: hotBuffId,
             name: `${request.skillId} HoT`,
@@ -523,7 +525,7 @@ export class SkillEngine {
         if (effect.formula) {
           const dotBuffId = `dot_${request.skillId}`;
           if (!this.buffManager.getDefinition(dotBuffId)) {
-            const tickDmg = Math.floor(this.calculateFormula(effect.formula, request));
+            const tickDmg = Math.floor(this.calculateFormula(effect.formula, request, skillDef));
             const tickCount = Math.ceil((effect.durationMs ?? 10000) / (effect.tickIntervalMs ?? 1000));
             this.buffManager.registerDefinition({
               id: dotBuffId,
@@ -551,7 +553,7 @@ export class SkillEngine {
         if (effect.formula) {
           const hotBuffId = `hot_${request.skillId}`;
           if (!this.buffManager.getDefinition(hotBuffId)) {
-            const tickHeal = Math.floor(this.calculateFormula(effect.formula, request));
+            const tickHeal = Math.floor(this.calculateFormula(effect.formula, request, skillDef));
             const tickCount = Math.ceil((effect.durationMs ?? 10000) / (effect.tickIntervalMs ?? 1000));
             this.buffManager.registerDefinition({
               id: hotBuffId,
@@ -605,7 +607,7 @@ export class SkillEngine {
     return result;
   }
 
-  calculateFormula(formula: EffectFormula, request: SkillCastRequest): number {
+  calculateFormula(formula: EffectFormula, request: SkillCastRequest, skillDef?: SkillDefinition): number {
     let baseValue = formula.baseValue;
 
     switch (formula.type) {
@@ -634,6 +636,16 @@ export class SkillEngine {
       case 'fixed': {
         baseValue = formula.baseValue;
         break;
+      }
+    }
+
+    // Apply skill level scaling
+    if (skillDef?.levelScaling && request.skillLevel && request.skillLevel > 1) {
+      const lvl = request.skillLevel - 1;
+      const ls = skillDef.levelScaling;
+      if (ls.damageMultiplier) baseValue *= (1 + lvl * ls.damageMultiplier);
+      if (ls.durationMultiplier) {
+        // Duration scaling is handled at the call site
       }
     }
 

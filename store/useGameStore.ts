@@ -26,6 +26,7 @@ const INITIAL_PLAYER_STATE: PlayerState = {
     { id: 'red_potion', name: 'Red Potion', type: 'usable', amount: 10, description: 'Restores 30 HP.' },
   ],
   equippedItems: {},
+  skillLevels: {},
 };
 
 function buildInitialEnemies(): Record<string, EnemyState> {
@@ -131,17 +132,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   getCombatStats: () => {
     const p = get().player;
-    const stats = p.stats;
+    const effectiveStats = get().getEquippedStats();
+    const es = effectiveStats;
+    const allItems = gameData.items;
+    const equipped = p.equippedItems || {};
+    let weaponAtk = 5;
+    let weaponMatk = 3;
+    for (const itemId of Object.values(equipped)) {
+      if (!itemId) continue;
+      const itemDef = allItems.find(i => i.id === itemId);
+      if (!itemDef) continue;
+      if (itemDef.atk) weaponAtk = Math.max(weaponAtk, itemDef.atk);
+      if (itemDef.matk) weaponMatk = Math.max(weaponMatk, itemDef.matk);
+    }
     return {
-      atk: (stats?.str || 0) * 3 + (p.baseLevel || 1) * 1.5 + 5,
-      matk: (stats?.int || 0) * 3.5 + (p.baseLevel || 1) * 1.2 + 3,
-      def: (stats?.vit || 0) * 1.5,
-      mdef: (stats?.int || 0) * 0.5,
-      hit: 50 + (stats?.dex || 0) * 2.5 + (p.baseLevel || 1) * 0.5,
-      flee: 80 + (stats?.agi || 0) * 2 + (p.baseLevel || 1) * 0.5,
-      attackSpeed: Math.max(200, 800 - (stats?.agi || 0) * 4),
-      critChance: 0.02 + (stats?.luk || 0) * 0.003 + (p.baseLevel || 1) * 0.001,
-      critDamage: 1.5 + (stats?.luk || 0) * 0.005,
+      atk: (es.str || 0) * 3 + (p.baseLevel || 1) * 1.5 + weaponAtk,
+      matk: (es.int || 0) * 3.5 + (p.baseLevel || 1) * 1.2 + weaponMatk,
+      def: (es.vit || 0) * 1.5,
+      mdef: (es.int || 0) * 0.5,
+      hit: 50 + (es.dex || 0) * 2.5 + (p.baseLevel || 1) * 0.5,
+      flee: 80 + (es.agi || 0) * 2 + (p.baseLevel || 1) * 0.5,
+      attackSpeed: Math.max(200, 800 - (es.agi || 0) * 4),
+      critChance: 0.02 + (es.luk || 0) * 0.003 + (p.baseLevel || 1) * 0.001,
+      critDamage: 1.5 + (es.luk || 0) * 0.005,
     };
   },
 
@@ -172,7 +185,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     import('./useNetworkStore').then(({ useNetworkStore }) => {
       const socket = useNetworkStore.getState().socket;
       if (socket?.connected) {
-        socket.emit('changeJob', { jobId }, (res: { success: boolean, error?: string }) => {
+        socket.emit('changeJob', { newJob: jobId }, (res: { success: boolean, error?: string }) => {
           if (res.success) {
             set((s) => ({
               player: {
@@ -245,28 +258,66 @@ export const useGameStore = create<GameStore>((set, get) => ({
   allocateStat: (stat) => {
     const state = get();
     if (state.player.stats.statPoints <= 0) return;
-    set((s) => ({
-      player: {
-        ...s.player,
-        stats: {
-          ...s.player.stats,
-          [stat]: (s.player.stats[stat] || 0) + 1,
-          statPoints: s.player.stats.statPoints - 1
-        }
+    import('./useNetworkStore').then(({ useNetworkStore }) => {
+      const socket = useNetworkStore.getState().socket;
+      if (socket?.connected) {
+        socket.emit('allocateStat', { stat }, (res: any) => {
+          if (res?.success) {
+            set((s) => ({
+              player: {
+                ...s.player,
+                stats: res.stats ?? {
+                  ...s.player.stats,
+                  [stat]: (s.player.stats[stat] || 0) + 1,
+                  statPoints: s.player.stats.statPoints - 1
+                },
+              }
+            }));
+          }
+        });
+      } else {
+        set((s) => ({
+          player: {
+            ...s.player,
+            stats: {
+              ...s.player.stats,
+              [stat]: (s.player.stats[stat] || 0) + 1,
+              statPoints: s.player.stats.statPoints - 1
+            }
+          }
+        }));
       }
-    }));
+    });
   },
 
   unlockSkill: (skillId, cost) => {
     const state = get();
     if (state.player.skillPoints < cost) return;
-    set((s) => ({
-      player: {
-        ...s.player,
-        skillPoints: s.player.skillPoints - cost,
-        unlockedSkills: [...(s.player.unlockedSkills || []), skillId]
+    import('./useNetworkStore').then(({ useNetworkStore }) => {
+      const socket = useNetworkStore.getState().socket;
+      if (socket?.connected) {
+        socket.emit('unlockSkill', { skillId }, (res: any) => {
+          if (res?.success) {
+            set((s) => ({
+              player: {
+                ...s.player,
+                unlockedSkills: res.unlockedSkills ?? s.player.unlockedSkills,
+                skillLevels: res.skillLevels ?? s.player.skillLevels,
+                skillPoints: res.skillPoints ?? s.player.skillPoints - cost,
+              },
+            }));
+          }
+        });
+      } else {
+        set((s) => ({
+          player: {
+            ...s.player,
+            skillPoints: s.player.skillPoints - cost,
+            unlockedSkills: [...(s.player.unlockedSkills || []), skillId],
+          }
+        }));
       }
-    }));
+    });
   },
 
   addDamageText: (amount, pos, color = 'white') => set((state) => {
@@ -302,7 +353,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         skillPoints: (state.player.skillPoints ?? 0) + data.skillPointsGain,
         stats: {
           ...state.player.stats,
-          points: (state.player.stats?.points ?? 0) + data.statPointsGain,
+          statPoints: (state.player.stats?.statPoints ?? 0) + data.statPointsGain,
         },
       },
     };
@@ -328,12 +379,73 @@ export const useGameStore = create<GameStore>((set, get) => ({
       inventory: characterState?.inventory || INITIAL_PLAYER_STATE.inventory,
       unlockedSkills: characterState?.unlockedSkills || INITIAL_PLAYER_STATE.unlockedSkills,
       equippedItems: characterState?.equippedItems || INITIAL_PLAYER_STATE.equippedItems,
+      skillLevels: characterState?.skillLevels ?? {},
     }
   })),
 
-  equipItem: (itemId, slot) => set((s) => s),
-  unequipItem: (slot) => set((s) => s),
-  getEquippedStats: () => get().player.stats,
+  equipItem: (itemId, slot) => {
+    import('./useNetworkStore').then(({ useNetworkStore }) => {
+      const socket = useNetworkStore.getState().socket;
+      if (socket?.connected) {
+        socket.emit('equipItem', { itemId, slot }, (res: { success: boolean; error?: string }) => {
+          if (res.success) {
+            set((s) => {
+              const inv = (s.player.inventory || []).filter(i => i.id !== itemId);
+              return {
+                player: {
+                  ...s.player,
+                  inventory: inv,
+                  equippedItems: { ...(s.player.equippedItems || {}), [slot]: itemId },
+                },
+              };
+            });
+          }
+        });
+      }
+    });
+  },
+  unequipItem: (slot) => {
+    import('./useNetworkStore').then(({ useNetworkStore }) => {
+      const socket = useNetworkStore.getState().socket;
+      if (socket?.connected) {
+        socket.emit('unequipItem', { slot }, (res: { success: boolean; error?: string }) => {
+          if (res.success) {
+            set((s) => {
+              const { [slot]: removed, ...rest } = s.player.equippedItems || {};
+              const itemId = removed;
+              const itemDef = itemId ? gameData.items.find(i => i.id === itemId) : undefined;
+              const inv = itemId
+                ? [...(s.player.inventory || []), { id: itemId, name: itemDef?.name || '', type: 'equip' as const, amount: 1, description: itemDef?.description || '' }]
+                : s.player.inventory;
+              return {
+                player: {
+                  ...s.player,
+                  inventory: inv,
+                  equippedItems: rest,
+                },
+              };
+            });
+          }
+        });
+      }
+    });
+  },
+  getEquippedStats: () => {
+    const s = get();
+    const equipped = s.player.equippedItems || {};
+    const totalStats: Record<string, number> = { str: 0, agi: 0, vit: 0, int: 0, dex: 0, luk: 0 };
+    const allItems = gameData.items;
+    for (const itemId of Object.values(equipped)) {
+      if (!itemId) continue;
+      const itemDef = allItems.find(i => i.id === itemId);
+      if (itemDef?.equipStats) {
+        for (const [k, v] of Object.entries(itemDef.equipStats)) {
+          if (typeof v === 'number') totalStats[k] = (totalStats[k] || 0) + v;
+        }
+      }
+    }
+    return { ...s.player.stats, ...totalStats };
+  },
 
   reloadData: async () => {
     showToast('Reloading core systems...', 'info');

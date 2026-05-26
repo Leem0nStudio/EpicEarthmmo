@@ -33,6 +33,7 @@ export interface PlayerState {
   stats: PlayerStats;
   skillPoints: number;
   unlockedSkills: string[];
+  skillLevels: Record<string, number>;
   inventory: InventoryItem[];
   equippedItems: Record<string, string>;
 }
