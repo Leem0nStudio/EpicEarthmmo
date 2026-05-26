@@ -2,8 +2,8 @@
 
 import React, { useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Mesh, MeshBasicMaterial, CanvasTexture, Texture } from 'three';
-import { directionFromAngle, getSpriteFrame, type Direction, type AnimState, type SpriteFrame, prefetchEntity } from '@/lib/spriteManager';
+import { Mesh, MeshBasicMaterial, CanvasTexture } from 'three';
+import { getSpriteFrame, type Direction, type AnimState, type SpriteFrame, prefetchEntity } from '@/lib/spriteManager';
 
 interface SpriteEntityProps {
   entityId: string;
@@ -21,31 +21,23 @@ interface SpriteEntityProps {
 
 const fallbackCache = new Map<string, CanvasTexture>();
 
-function getFallbackTexture(entityId: string): CanvasTexture {
+function getFallbackTexture(entityId: string): CanvasTexture | null {
   const cached = fallbackCache.get(entityId);
   if (cached) return cached;
+  if (typeof document === 'undefined') return null;
 
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
   const ctx = canvas.getContext('2d')!;
-
-  ctx.fillStyle = '#8B4513';
+  ctx.fillStyle = '#4a6a8a';
+  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillStyle = '#3a5a7a';
   ctx.beginPath();
-  ctx.arc(32, 18, 11, 0, Math.PI * 2);
+  ctx.arc(32, 24, 14, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#ffd5a0';
-  ctx.beginPath();
-  ctx.arc(32, 20, 9, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#333';
-  ctx.fillRect(27, 18, 3, 3);
-  ctx.fillRect(34, 18, 3, 3);
-  ctx.fillStyle = '#2a7a9e';
-  ctx.fillRect(22, 26, 20, 16);
-  ctx.fillStyle = '#4a4a6a';
-  ctx.fillRect(24, 42, 6, 10);
-  ctx.fillRect(34, 42, 6, 10);
+  ctx.fillStyle = '#2a4a6a';
+  ctx.fillRect(20, 32, 24, 24);
 
   const tex = new CanvasTexture(canvas);
   fallbackCache.set(entityId, tex);

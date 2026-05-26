@@ -75,20 +75,26 @@ export function MapScene({ mapData }: { mapData: MapData }) {
     return () => { currentNavGrid.grid = null; };
   }, [navGrid]);
 
-  const visibleDecorations = useMemo(() => {
-    if (!mapData.regions || mapData.regions.length === 0) return mapData.decorations;
-
-    const chunks = computeChunks(
+  // Compute chunks only from static map data — NOT from playerPos
+  const chunks = useMemo(() => {
+    if (!mapData.regions || mapData.regions.length === 0) return null;
+    return computeChunks(
       mapData.regions,
       mapData.decorations as any,
       mapData.tiles ?? [],
       mapData.triggers ?? [],
       [],
     );
-    const visibleChunks = getVisibleChunks(chunks, playerPos.x, playerPos.z, 40);
+  }, [mapData.regions, mapData.decorations, mapData.tiles, mapData.triggers]);
 
+  // Visible chunks depends on playerPos
+  const visibleChunks = useMemo(() => {
+    if (!chunks) return null;
+    return getVisibleChunks(chunks, playerPos.x, playerPos.z, 40);
+  }, [chunks, playerPos.x, playerPos.z]);
+
+  const visibleDecorations = useMemo(() => {
     if (!visibleChunks) return mapData.decorations;
-
     const decos: MapDecoration[] = [];
     const seen = new Set<string>();
     for (const chunk of visibleChunks) {
@@ -101,27 +107,11 @@ export function MapScene({ mapData }: { mapData: MapData }) {
       }
     }
     return decos.length > 0 ? decos : mapData.decorations;
-  }, [mapData.regions, mapData.decorations, mapData.tiles, mapData.triggers, playerPos.x, playerPos.z]);
-
-  const openedChests = useGameStore((state) => state.openedChests);
-  const emptyChests = useRef<string[]>([]);
-  const safeChests = openedChests ?? emptyChests.current;
+  }, [visibleChunks, mapData.decorations]);
 
   const visibleTiles = useMemo(() => {
     if (!mapData.tiles || mapData.tiles.length === 0) return [];
-    if (!mapData.regions || mapData.regions.length === 0) return mapData.tiles;
-
-    const chunks = computeChunks(
-      mapData.regions,
-      mapData.decorations as any,
-      mapData.tiles,
-      mapData.triggers ?? [],
-      [],
-    );
-    const visibleChunks = getVisibleChunks(chunks, playerPos.x, playerPos.z, 40);
-
     if (!visibleChunks) return mapData.tiles;
-
     const tiles: Tile[] = [];
     const seen = new Set<string>();
     for (const chunk of visibleChunks) {
@@ -134,7 +124,11 @@ export function MapScene({ mapData }: { mapData: MapData }) {
       }
     }
     return tiles.length > 0 ? tiles : mapData.tiles;
-  }, [mapData.regions, mapData.tiles, mapData.decorations, mapData.triggers, playerPos.x, playerPos.z]);
+  }, [visibleChunks, mapData.tiles]);
+
+  const openedChests = useGameStore((state) => state.openedChests);
+  const emptyChests = useRef<string[]>([]);
+  const safeChests = openedChests ?? emptyChests.current;
 
   const handlePointerDown = useCallback((e: any) => {
     if (e.button !== 0) return;
