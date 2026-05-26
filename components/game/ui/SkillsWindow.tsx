@@ -205,12 +205,6 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
                   </button>
                 </div>
               </div>
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>

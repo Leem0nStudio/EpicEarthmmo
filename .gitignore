@@ -8,3 +8,6 @@ next-env.d.ts
 dist/
 game-server/dist/
 game-server/node_modules/
+.opencode/
+.github/specs/
+.specify/
