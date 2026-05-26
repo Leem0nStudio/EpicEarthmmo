@@ -435,32 +435,6 @@ export class SkillEngine {
         }
         break;
       }
-      case 'hot': {
-        if (effect.formula) {
-          const hotBuffId = `hot_${request.skillId}`;
-          const tickDmg = Math.floor(this.calculateFormula(effect.formula, request, skillDef));
-          const def: BuffDefinition = {
-            id: hotBuffId,
-            name: `${request.skillId} HoT`,
-            isDebuff: false,
-            durationMs: effect.durationMs ?? 10000,
-            stackLimit: 3,
-            stackRule: 'refresh',
-            diminishingReturns: false,
-            drReductionPerStack: 0,
-            onTick: [{
-              type: 'heal',
-              formula: { type: 'flat', baseValue: Math.round(tickDmg / ((effect.durationMs ?? 10000) / (effect.tickIntervalMs ?? 1000))), multiplier: 1, variance: 0, critChance: 0, critMultiplier: 1.5 },
-              applyToSelf: false,
-            }],
-            color: '#44ff44',
-          };
-          this.buffManager.registerDefinition(def);
-          this.buffManager.applyBuff(target.id, hotBuffId, request.casterId, effect.durationMs);
-          result.buffApplied = hotBuffId;
-        }
-        break;
-      }
       case 'buff':
       case 'debuff': {
         // Use skill-specific buff IDs so registered definitions have the correct stat modifiers

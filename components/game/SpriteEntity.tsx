@@ -59,6 +59,7 @@ export function SpriteEntity({
   animState = 'idle',
   scale = 1,
   isDead = false,
+  isSelected = false,
   onClick,
   hpBar,
   nameTag,

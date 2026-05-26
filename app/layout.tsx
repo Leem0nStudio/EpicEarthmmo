@@ -5,6 +5,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'EpicEarthMMO',
   description: 'A web-based multiplayer RPG',
+  icons: [{ rel: 'icon', url: '/favicon.svg', type: 'image/svg+xml' }],
   viewport: {
     width: 'device-width',
     initialScale: 1,
