@@ -189,6 +189,30 @@
     "sellPrice": 150
   },
   {
+    "id": "mystic_ore",
+    "name": "Mystic Ore",
+    "type": "misc",
+    "description": "A rare alchemical ore pulsing with arcane energy.",
+    "rarity": 2,
+    "maxStack": 99,
+    "buyPrice": 2000,
+    "sellPrice": 600
+  },
+  {
+    "id": "cursed_bandage",
+    "name": "Cursed Bandage",
+    "type": "usable",
+    "description": "A dark remedy that restores 50 HP at a cost.",
+    "rarity": 2,
+    "effect": {
+      "type": "restore_hp",
+      "value": 50
+    },
+    "maxStack": 20,
+    "buyPrice": 1200,
+    "sellPrice": 350
+  },
+  {
     "id": "iron_shield",
     "name": "Iron Shield",
     "type": "equip",

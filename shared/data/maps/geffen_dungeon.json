@@ -28,115 +28,86 @@
       "name": "Dungeon Entrance"
     }
   ],
+  "chests": [
+    {
+      "id": "dungeon_chest_1",
+      "position": { "x": 8, "y": 0, "z": -15 },
+      "lootTable": [
+        { "itemId": "iron_sword", "chance": 0.18, "minAmount": 1, "maxAmount": 1 },
+        { "itemId": "mystic_ore", "chance": 0.08, "minAmount": 1, "maxAmount": 1 }
+      ],
+      "respawnSeconds": 180
+    },
+    {
+      "id": "dungeon_chest_2",
+      "position": { "x": -8, "y": 0, "z": 15 },
+      "lootTable": [
+        { "itemId": "cotton_shirt", "chance": 0.16, "minAmount": 1, "maxAmount": 1 },
+        { "itemId": "cursed_bandage", "chance": 0.1, "minAmount": 1, "maxAmount": 1 }
+      ],
+      "respawnSeconds": 180
+    },
+    {
+      "id": "dungeon_chest_3",
+      "position": { "x": -18, "y": 0, "z": -5 },
+      "lootTable": [
+        { "itemId": "wooden_shield", "chance": 0.14, "minAmount": 1, "maxAmount": 1 },
+        { "itemId": "mystic_ore", "chance": 0.06, "minAmount": 1, "maxAmount": 1 }
+      ],
+      "respawnSeconds": 180
+    },
+    {
+      "id": "dungeon_chest_4",
+      "position": { "x": 0, "y": 0, "z": 10 },
+      "lootTable": [
+        { "itemId": "iron_sword", "chance": 0.12, "minAmount": 1, "maxAmount": 1 },
+        { "itemId": "cursed_bandage", "chance": 0.08, "minAmount": 1, "maxAmount": 1 }
+      ],
+      "respawnSeconds": 180
+    }
+  ],
   "enemyAreas": [
     {
       "enemyId": "spore",
       "center": { "x": 10, "z": -10 },
       "radius": 8,
       "count": 5,
-      "respawnSeconds": 22
-    },
-    {
-      "enemyId": "spore",
-      "center": { "x": -10, "z": 10 },
-      "radius": 7,
-      "count": 4,
-      "respawnSeconds": 24
+      "respawnSeconds": 25
     },
     {
       "enemyId": "wolf",
-      "center": { "x": 15, "z": 10 },
+      "center": { "x": -10, "z": 10 },
       "radius": 7,
       "count": 4,
       "respawnSeconds": 30
     },
     {
       "enemyId": "savage",
+      "center": { "x": 0, "z": 15 },
+      "radius": 6,
+      "count": 4,
+      "respawnSeconds": 20
+    },
+    {
+      "enemyId": "drainliar",
       "center": { "x": -15, "z": -15 },
-      "radius": 8,
-      "count": 3,
-      "respawnSeconds": 40
-    },
-    {
-      "enemyId": "savage",
-      "center": { "x": 5, "z": -20 },
-      "radius": 6,
-      "count": 3,
-      "respawnSeconds": 38
-    },
-    {
-      "enemyId": "drainliar",
-      "center": { "x": -5, "z": 18 },
       "radius": 7,
-      "count": 3,
-      "respawnSeconds": 50
-    },
-    {
-      "enemyId": "drainliar",
-      "center": { "x": 20, "z": -5 },
-      "radius": 6,
-      "count": 2,
-      "respawnSeconds": 55
+      "count": 4,
+      "respawnSeconds": 28
     },
     {
       "enemyId": "elder_wolf",
-      "center": { "x": -20, "z": -8 },
+      "center": { "x": 15, "z": 5 },
       "radius": 6,
-      "count": 2,
-      "respawnSeconds": 70
+      "count": 3,
+      "respawnSeconds": 22
     },
     {
       "enemyId": "mummy",
-      "center": { "x": 0, "z": -22 },
-      "radius": 5,
+      "center": { "x": -5, "z": -20 },
+      "radius": 8,
       "count": 2,
-      "respawnSeconds": 90
-    }
-  ],
-  "chests": [
-    {
-      "id": "dungeon_chest_1",
-      "position": { "x": 8, "y": 0.5, "z": -15 },
-      "lootTable": [
-        { "itemId": "red_potion", "chance": 0.9, "minAmount": 2, "maxAmount": 5 },
-        { "itemId": "cursed_bandage", "chance": 0.6, "minAmount": 1, "maxAmount": 2 },
-        { "itemId": "mystic_ore", "chance": 0.3, "minAmount": 1, "maxAmount": 1 },
-        { "itemId": "iron_sword", "chance": 0.08, "minAmount": 1, "maxAmount": 1 }
-      ],
-      "respawnSeconds": 600
-    },
-    {
-      "id": "dungeon_chest_2",
-      "position": { "x": -8, "y": 0.5, "z": 15 },
-      "lootTable": [
-        { "itemId": "blue_potion", "chance": 0.9, "minAmount": 2, "maxAmount": 4 },
-        { "itemId": "cursed_bandage", "chance": 0.7, "minAmount": 1, "maxAmount": 3 },
-        { "itemId": "vampire_fang", "chance": 0.4, "minAmount": 1, "maxAmount": 2 },
-        { "itemId": "wooden_shield", "chance": 0.06, "minAmount": 1, "maxAmount": 1 }
-      ],
-      "respawnSeconds": 600
-    },
-    {
-      "id": "dungeon_chest_3",
-      "position": { "x": -18, "y": 0.5, "z": -5 },
-      "lootTable": [
-        { "itemId": "mystic_ore", "chance": 0.8, "minAmount": 1, "maxAmount": 3 },
-        { "itemId": "mummy_wrap", "chance": 0.5, "minAmount": 1, "maxAmount": 2 },
-        { "itemId": "elder_bone", "chance": 0.4, "minAmount": 1, "maxAmount": 2 },
-        { "itemId": "cotton_shirt", "chance": 0.1, "minAmount": 1, "maxAmount": 1 }
-      ],
-      "respawnSeconds": 700
-    },
-    {
-      "id": "dungeon_chest_4",
-      "position": { "x": 15, "y": 0.5, "z": -18 },
-      "lootTable": [
-        { "itemId": "cursed_bandage", "chance": 0.9, "minAmount": 2, "maxAmount": 4 },
-        { "itemId": "mystic_ore", "chance": 0.6, "minAmount": 1, "maxAmount": 2 },
-        { "itemId": "gold_ring", "chance": 0.04, "minAmount": 1, "maxAmount": 1 },
-        { "itemId": "steel_boots", "chance": 0.03, "minAmount": 1, "maxAmount": 1 }
-      ],
-      "respawnSeconds": 900
+      "respawnSeconds": 40
     }
   ],
   "decorations": [
@@ -184,11 +155,6 @@
     {"position": [-12, 0, 3], "type": "crack", "scale": 0.9},
     {"position": [0, 0, 10], "type": "crack", "scale": 1.1},
     {"position": [0, 0, -10], "type": "crack", "scale": 0.7},
-
-    {"position": [8, 0, -15], "type": "chest", "scale": 1.0},
-    {"position": [-8, 0, 15], "type": "chest", "scale": 0.9},
-    {"position": [-18, 0, -5], "type": "chest", "scale": 0.8},
-    {"position": [15, 0, -18], "type": "chest", "scale": 1.0},
 
     {"position": [-6, 0, -6], "type": "dungeon_floor_tile", "scale": 1.0},
     {"position": [6, 0, -6], "type": "dungeon_floor_tile", "scale": 1.0},

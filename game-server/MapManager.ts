@@ -251,6 +251,7 @@ export class MapManager {
       grassTuftCount: config.grassTuftCount,
       grassTexture: config.grassTexture,
       floorColor: config.floorColor,
+      chests: config.chests ?? [],
     };
   }
 

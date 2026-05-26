@@ -41,7 +41,7 @@ function toStatusEffectProps(buffs: ActiveBuffData[]): React.ComponentProps<type
 
 export function PlayerFrame() {
   const player = useGameStore((state) => state.player);
-  const activeBuffs = useNetworkStore((state) => state.activeBuffs);
+  const activeBuffs = useNetworkStore((state) => state.activeBuffs || []);
 
   if (!player) return null;
 

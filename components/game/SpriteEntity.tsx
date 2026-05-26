@@ -12,6 +12,7 @@ interface SpriteEntityProps {
   animState?: AnimState;
   scale?: number;
   isDead?: boolean;
+  isSelected?: boolean;
   onClick?: () => void;
   hpBar?: { current: number; max: number };
   nameTag?: string;
@@ -64,6 +65,7 @@ export function SpriteEntity({
   depthOffset = 0,
 }: SpriteEntityProps) {
   const meshRef = useRef<Mesh>(null);
+  const ringRef = useRef<Mesh>(null);
   const clockRef = useRef(0);
   const [texture, setTexture] = React.useState<CanvasTexture | Texture | null>(null);
 
@@ -87,8 +89,21 @@ export function SpriteEntity({
   const opacity = isDead ? 0.4 : 1;
   const yPos = position.y + (isDead ? -0.3 : 0);
 
+  useFrame(() => {
+    if (isSelected && ringRef.current) {
+      const pulse = 0.95 + 0.08 * Math.sin(clockRef.current * 0.006);
+      ringRef.current.scale.set(pulse * scale, pulse * scale, pulse * scale);
+    }
+  });
+
   return (
     <group position={[position.x, yPos + depthOffset, position.z]}>
+      {isSelected && (
+        <mesh ref={ringRef} position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={0}>
+          <ringGeometry args={[0.45 * scale, 0.7 * scale, 32]} />
+          <meshBasicMaterial color="#ffcc33" transparent opacity={0.6} depthWrite={false} side={2} />
+        </mesh>
+      )}
       <mesh ref={meshRef} onClick={onClick} userData={{ raycastable: true }}>
         <planeGeometry args={[1.5 * scale, 1.5 * scale]} />
         <meshBasicMaterial
@@ -140,6 +155,7 @@ interface SortedEntitiesProps {
     onClick?: () => void;
     hpBar?: { current: number; max: number };
     nameTag?: string;
+    isSelected?: boolean;
   }>;
 }
 
@@ -165,6 +181,7 @@ export function SortedEntities({ entities }: SortedEntitiesProps) {
           isDead={entity.isDead}
           onClick={entity.onClick}
           hpBar={entity.hpBar}
+          isSelected={entity.isSelected}
           nameTag={entity.nameTag}
         />
       ))}

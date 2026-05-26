@@ -7,6 +7,7 @@ import { DamageNumbers } from '../DamageNumbers';
 
 export function MapEntities() {
   const enemies = useGameStore((state) => state.enemies);
+  const selectedTargetId = useGameStore((state) => state.selectedTargetId);
 
   const entityList = useMemo(() => {
     return Object.values(enemies).map(enemy => ({
@@ -17,6 +18,7 @@ export function MapEntities() {
       isDead: enemy.isDead,
       hpBar: { current: enemy.hp, max: enemy.maxHp },
       nameTag: enemy.name || '',
+      isSelected: enemy.id === selectedTargetId,
     }));
   }, [enemies]);
 

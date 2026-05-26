@@ -10,8 +10,9 @@ function DamageNumber({ damage }: { damage: DamageText }) {
   const initialPos = useRef({ x: damage.position.x, y: damage.position.y, z: damage.position.z });
 
   const isCritical = damage.amount >= 15;
-  const isHeal = damage.color.includes('green') || damage.color.includes('4ade80');
-  const isPlayerDamage = damage.color.includes('ff4444') || damage.color.includes('red');
+  const color = damage.color || '';
+  const isHeal = color.includes('green') || color.includes('4ade80');
+  const isPlayerDamage = color.includes('ff4444') || color.includes('red');
 
   const fontSize = useMemo(() => {
     if (isCritical) return 0.7;
@@ -40,7 +41,7 @@ function DamageNumber({ damage }: { damage: DamageText }) {
     }
   });
 
-  const displayColor = isCritical ? '#ffcc00' : damage.color;
+  const displayColor = isCritical ? '#ffcc00' : (damage.color || '#ffffff');
   const outlineColor = isCritical ? '#8B4513' : 'black';
   const outlineWidth = isCritical ? 0.08 : 0.04;
 

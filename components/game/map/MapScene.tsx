@@ -16,6 +16,7 @@ import { MapColliders } from './MapColliders';
 import { MapWarps } from './MapWarps';
 import { MapSafeZones } from './MapSafeZones';
 import { MapGrass } from './MapGrass';
+import { Chest } from '../Chest';
 
 interface WarpData {
   id: string;
@@ -32,6 +33,13 @@ interface SafeZoneData {
   name?: string;
 }
 
+interface ChestData {
+  id: string;
+  position: { x: number; y: number; z: number };
+  lootTable?: Array<{ itemId: string; chance: number; minAmount: number; maxAmount: number }>;
+  respawnSeconds?: number;
+}
+
 interface MapData {
   mapId: string;
   mapName: string;
@@ -40,6 +48,7 @@ interface MapData {
   warps: WarpData[];
   safeZones: SafeZoneData[];
   decorations: MapDecoration[];
+  chests?: ChestData[];
   grassTuftCount: number;
   grassTexture: { baseColor: string; repeatX: number; repeatY: number };
   floorColor: string;
@@ -93,6 +102,8 @@ export function MapScene({ mapData }: { mapData: MapData }) {
     }
     return decos.length > 0 ? decos : mapData.decorations;
   }, [mapData.regions, mapData.decorations, mapData.tiles, mapData.triggers, playerPos.x, playerPos.z]);
+
+  const openedChests = useGameStore((state) => state.openedChests || []);
 
   const visibleTiles = useMemo(() => {
     if (!mapData.tiles || mapData.tiles.length === 0) return [];
@@ -169,6 +180,15 @@ export function MapScene({ mapData }: { mapData: MapData }) {
         decorations={visibleDecorations}
         playerPosition={playerPos}
       />
+
+      {mapData.chests?.map((chest) => (
+        <Chest
+          key={chest.id}
+          id={chest.id}
+          position={chest.position}
+          isOpen={openedChests.includes(chest.id)}
+        />
+      ))}
 
       <MapColliders colliders={mapData.colliders ?? []} />
 

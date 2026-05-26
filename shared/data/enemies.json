@@ -167,7 +167,8 @@
       "sprite": "elder_wolf",
       "drops": [
         { "itemId": "wolf_fur", "chance": 0.5, "minAmount": 2, "maxAmount": 3 },
-        { "itemId": "leather_boots", "chance": 0.04, "minAmount": 1, "maxAmount": 1 }
+        { "itemId": "leather_boots", "chance": 0.04, "minAmount": 1, "maxAmount": 1 },
+        { "itemId": "mystic_ore", "chance": 0.08, "minAmount": 1, "maxAmount": 1 }
       ],
       "expBase": 220,
       "expJob": 110,
@@ -188,7 +189,8 @@
       "drops": [
         { "itemId": "silky_cocoon", "chance": 0.3, "minAmount": 2, "maxAmount": 4 },
         { "itemId": "iron_sword", "chance": 0.1, "minAmount": 1, "maxAmount": 1 },
-        { "itemId": "wooden_shield", "chance": 0.05, "minAmount": 1, "maxAmount": 1 }
+        { "itemId": "wooden_shield", "chance": 0.05, "minAmount": 1, "maxAmount": 1 },
+        { "itemId": "cursed_bandage", "chance": 0.05, "minAmount": 1, "maxAmount": 1 }
       ],
       "expBase": 350,
       "expJob": 175,

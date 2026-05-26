@@ -40,12 +40,13 @@ export function AuthForm() {
 
       if (err) {
         // Map common Supabase errors to user-friendly messages
-        if (err.includes('Invalid login credentials')) {
+        const msg = String(err || '');
+        if (msg.includes('Invalid login credentials')) {
           setError('Invalid email or password');
-        } else if (err.includes('User already registered')) {
+        } else if (msg.includes('User already registered')) {
           setError('An account with this email already exists');
         } else {
-          setError(err);
+          setError(msg);
         }
       } else {
         showToast(isSignUp ? 'Account created! Please check your email.' : 'Welcome back, Hero!', 'success');

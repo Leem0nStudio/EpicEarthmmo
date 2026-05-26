@@ -56,12 +56,12 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* Compact Two-Column Grid */}
         <div className="min-h-[220px] bg-slate-950/40 p-2 rounded-2xl border border-white/5 relative">
           <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
             {skills.map((skill, index) => {
-              const isUnlocked = player.unlockedSkills.includes(skill.id) || skill.skillPointCost === 0;
-              const meetsReqs = skill.requirements.every(r => player.unlockedSkills.includes(r) || r === 'basic_attack');
+              const unlocked = player.unlockedSkills || [];
+              const isUnlocked = unlocked.includes(skill.id) || skill.skillPointCost === 0;
+              const meetsReqs = (skill.requirements || []).every((r: string) => unlocked.includes(r) || r === 'basic_attack');
               const canUnlock = !isUnlocked && meetsReqs && player.skillPoints >= skill.skillPointCost;
               const isSelected = selectedSkill?.id === skill.id;
 
@@ -153,87 +153,58 @@ export function SkillsWindow({ onClose }: { onClose: () => void }) {
               exit={{ opacity: 0, y: 15 }}
               className="bg-slate-900/90 border border-slate-700/60 rounded-2xl p-3 shadow-2xl relative overflow-hidden"
             >
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-slate-950/50 flex items-center justify-center border border-white/5 shrink-0">
-                      <GameIcon
-                        iconType="skill"
-                        id={selectedSkill.id}
-                        name={selectedSkill.name}
-                        variant={player.unlockedSkills.includes(selectedSkill.id) ? 'green' : 'default'}
-                        size={32}
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-extrabold text-xs text-white uppercase leading-none">{selectedSkill.name}</h3>
-                        {player.unlockedSkills.includes(selectedSkill.id) ? (
-                          <Badge variant="success" size="xs">Mastered</Badge>
-                        ) : (
-                          <Badge variant="purple" size="xs">Lv. 0/1</Badge>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-400 leading-tight mt-1 max-w-[240px]">
-                        {selectedSkill.description}
-                      </p>
-                    </div>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-xl font-black text-white">{selectedSkill.name}</h2>
+                    <p className="text-sm text-slate-400 mt-1 max-w-[80%]">{selectedSkill.description}</p>
                   </div>
-
-                  <div className="shrink-0 flex flex-col items-end gap-1">
-                    <span className="text-[8px] font-black uppercase text-indigo-400">Cost</span>
-                    <span className="text-sm font-black text-white leading-none">{selectedSkill.skillPointCost} SP</span>
-                  </div>
+                  <GameIcon
+                    iconType="skill"
+                    id={selectedSkill.id}
+                    name={selectedSkill.name}
+                    variant="green"
+                    size={56}
+                  />
                 </div>
 
-                <div className="h-px bg-white/5 w-full" />
+                <div className="h-[1px] bg-white/5 w-full" />
 
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">Requirements</span>
-                    <div className="flex gap-1.5 overflow-x-auto py-0.5 max-w-[200px] custom-scrollbar">
-                      {selectedSkill.requirements.length > 0 ? (
-                        selectedSkill.requirements.map((req: string) => {
-                          const reqMet = player.unlockedSkills.includes(req) || req === 'basic_attack';
-                          return (
-                            <Badge key={req} variant={reqMet ? "success" : "default"} size="xs" className="text-[8px] py-0 px-1 font-bold">
-                              {req.replace('_', ' ')}
-                            </Badge>
-                          );
-                        })
-                      ) : (
-                        <span className="text-[8px] font-bold text-slate-500">None</span>
-                      )}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Requirements</span>
+                    <div className="flex gap-2">
+                       {(selectedSkill.requirements || []).map((req: string) => (
+                         <Badge key={req} variant={(player.unlockedSkills || []).includes(req) ? "success" : "default"} size="xs">
+                            {req.replace('_', ' ')}
+                         </Badge>
+                       ))}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {player.unlockedSkills.includes(selectedSkill.id) ? (
-                      <Badge variant="success" size="sm" className="h-8 font-black uppercase flex items-center justify-center px-4">
-                        LEARNED
-                      </Badge>
-                    ) : (
-                      <Button
-                        variant={
-                          player.skillPoints >= selectedSkill.skillPointCost && 
-                          selectedSkill.requirements.every((r: string) => player.unlockedSkills.includes(r) || r === 'basic_attack') 
-                            ? "primary" 
-                            : "secondary"
-                        }
-                        disabled={
-                          player.skillPoints < selectedSkill.skillPointCost || 
-                          !selectedSkill.requirements.every((r: string) => player.unlockedSkills.includes(r) || r === 'basic_attack')
-                        }
-                        onClick={() => unlockSkill(selectedSkill.id, selectedSkill.skillPointCost)}
-                        className="h-8 px-5 rounded-lg text-[10px] font-black uppercase tracking-wider"
-                      >
-                        Learn
-                      </Button>
-                    )}
+                  {(player.unlockedSkills || []).includes(selectedSkill.id) ? (
+                    <Badge variant="success" size="md" className="h-10 px-6 rounded-full bg-emerald-500/20 border-emerald-500/30 font-black">
+                      MASTERED
+                    </Badge>
+                  ) : (
+                    <Button
+                      variant={player.skillPoints >= selectedSkill.skillPointCost && (selectedSkill.requirements || []).every((r: string) => (player.unlockedSkills || []).includes(r) || r === 'basic_attack') ? "primary" : "secondary"}
+                      disabled={player.skillPoints < selectedSkill.skillPointCost || !(selectedSkill.requirements || []).every((r: string) => (player.unlockedSkills || []).includes(r) || r === 'basic_attack')}
+                      onClick={() => unlockSkill(selectedSkill.id, selectedSkill.skillPointCost)}
+                      className="h-12 px-8 rounded-full font-black text-sm shadow-xl"
+                    >
+                      Learn
+                    </Button>
+                  )}
 
-                    <button 
-                      onClick={() => setSelectedSkill(null)}
-                      className="text-[9px] font-bold text-slate-500 hover:text-slate-400 uppercase py-2 cursor-pointer outline-none shrink-0"
+                  <button 
+                    onClick={() => setSelectedSkill(null)}
+                    className="text-[9px] font-bold text-slate-500 hover:text-slate-400 uppercase py-2 cursor-pointer outline-none shrink-0"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
                     >
                       Dismiss
                     </button>
