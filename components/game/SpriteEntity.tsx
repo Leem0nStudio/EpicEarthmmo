@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useEffect, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Mesh, CanvasTexture, Texture, RepeatWrapping, ClampToEdgeWrapping } from 'three';
-import { directionFromAngle, getSpriteFrame, type Direction, type AnimState, prefetchEntity } from '@/lib/spriteManager';
+import { Mesh, MeshBasicMaterial, CanvasTexture, Texture } from 'three';
+import { directionFromAngle, getSpriteFrame, type Direction, type AnimState, type SpriteFrame, prefetchEntity } from '@/lib/spriteManager';
 
 interface SpriteEntityProps {
   entityId: string;
@@ -68,24 +68,64 @@ export function SpriteEntity({
   const meshRef = useRef<Mesh>(null);
   const ringRef = useRef<Mesh>(null);
   const clockRef = useRef(0);
-  const [texture, setTexture] = React.useState<CanvasTexture | Texture | null>(null);
+  const spriteInfoRef = useRef<SpriteFrame>({
+    texture: null,
+    offsetX: 0, offsetY: 0,
+    repeatX: 1, repeatY: 1,
+    frameIndex: 0, totalFrames: 1,
+  });
 
   useEffect(() => {
     prefetchEntity(entityId);
   }, [entityId]);
 
+  useLayoutEffect(() => {
+    if (!meshRef.current) return;
+    const frame = getSpriteFrame(entityId, animState, direction, 0);
+    const mat = meshRef.current.material;
+    const tex = frame.texture || getFallbackTexture(entityId);
+    if (mat && !Array.isArray(mat) && 'map' in mat && tex) {
+      const m = mat as unknown as MeshBasicMaterial;
+      m.map = tex;
+      m.needsUpdate = true;
+    }
+    spriteInfoRef.current = frame;
+  }, [entityId, animState, direction]);
+
   useFrame((_state, delta) => {
     clockRef.current += delta * 1000;
-
+    if (!meshRef.current) return;
     const frame = getSpriteFrame(entityId, animState, direction, clockRef.current);
-    if (frame.texture) {
-      setTexture(frame.texture);
-    } else {
-      setTexture(getFallbackTexture(entityId));
+    if (
+      frame.texture !== spriteInfoRef.current.texture ||
+      frame.offsetX !== spriteInfoRef.current.offsetX ||
+      frame.repeatX !== spriteInfoRef.current.repeatX
+    ) {
+      const mat = meshRef.current.material;
+      if (mat && !Array.isArray(mat) && 'map' in mat && frame.texture) {
+        const m = mat as unknown as MeshBasicMaterial;
+        m.map = frame.texture;
+        m.needsUpdate = true;
+      }
+      const geo = meshRef.current.geometry;
+      if (geo && 'attributes' in geo) {
+        const uvs = geo.attributes.uv;
+        const uvsArray = uvs.array as Float32Array;
+        const rw = frame.repeatX;
+        const ox = frame.offsetX;
+        uvsArray[0] = ox;
+        uvsArray[1] = 1;
+        uvsArray[2] = ox + rw;
+        uvsArray[3] = 1;
+        uvsArray[4] = ox;
+        uvsArray[5] = 0;
+        uvsArray[6] = ox + rw;
+        uvsArray[7] = 0;
+        uvs.needsUpdate = true;
+      }
+      spriteInfoRef.current = frame;
     }
   });
-
-  const activeTexture = texture ?? getFallbackTexture(entityId);
 
   const opacity = isDead ? 0.4 : 1;
   const yPos = position.y + (isDead ? -0.3 : 0);
@@ -108,7 +148,6 @@ export function SpriteEntity({
       <mesh ref={meshRef} onClick={onClick} userData={{ raycastable: true }}>
         <planeGeometry args={[1.5 * scale, 1.5 * scale]} />
         <meshBasicMaterial
-          map={activeTexture}
           transparent
           opacity={opacity}
           depthWrite={false}

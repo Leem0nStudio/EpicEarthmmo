@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useEffect, useCallback } from 'react';
+import React, { useMemo, useEffect, useCallback, useRef } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { useNetworkStore } from '@/store/useNetworkStore';
 import { createNavGridFromConfig } from '@/lib/navGrid';
@@ -103,7 +103,9 @@ export function MapScene({ mapData }: { mapData: MapData }) {
     return decos.length > 0 ? decos : mapData.decorations;
   }, [mapData.regions, mapData.decorations, mapData.tiles, mapData.triggers, playerPos.x, playerPos.z]);
 
-  const openedChests = useGameStore((state) => state.openedChests || []);
+  const openedChests = useGameStore((state) => state.openedChests);
+  const emptyChests = useRef<string[]>([]);
+  const safeChests = openedChests ?? emptyChests.current;
 
   const visibleTiles = useMemo(() => {
     if (!mapData.tiles || mapData.tiles.length === 0) return [];
@@ -186,7 +188,7 @@ export function MapScene({ mapData }: { mapData: MapData }) {
           key={chest.id}
           id={chest.id}
           position={chest.position}
-          isOpen={openedChests.includes(chest.id)}
+          isOpen={safeChests.includes(chest.id)}
         />
       ))}
 
