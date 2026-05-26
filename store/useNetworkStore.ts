@@ -87,6 +87,11 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       set({ currentMapData: data.initData });
       const gs = useGameStore.getState();
       gs.setMap(data.mapId, data.mapName, data.mapType);
+      if (data.openedChests) {
+        gs.setOpenedChests(data.openedChests);
+      } else {
+        gs.setOpenedChests([]);
+      }
       if (data.enemies) {
         for (const [id, se] of Object.entries(data.enemies as any)) {
           gs.updateEnemyState(id, se as any);
@@ -112,6 +117,11 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       set({ currentMapData: data.initData });
       const gs = useGameStore.getState();
       gs.setMap(data.mapId, data.mapName, data.mapType);
+      if ((data as any).openedChests) {
+        gs.setOpenedChests((data as any).openedChests);
+      } else {
+        gs.setOpenedChests([]);
+      }
       if (data.spawnPosition) {
         gs.setPosition({ x: data.spawnPosition.x, y: data.spawnPosition.y, z: data.spawnPosition.z });
         set({ lastSnapshotPos: { x: data.spawnPosition.x, y: data.spawnPosition.y, z: data.spawnPosition.z } });
@@ -361,6 +371,31 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
 
     newSocket.on('buffsUpdate', (data: ActiveBuffData[]) => {
       set({ activeBuffs: data ?? [] });
+    });
+
+    newSocket.on('chestOpened', (data: { chestId: string; loot: any[] }) => {
+      if (!data) return;
+      const gs = useGameStore.getState();
+      gs.addOpenedChest(data.chestId);
+      if (data.loot && data.loot.length > 0) {
+        gs.gainLoot(data.loot);
+        const lootNames = data.loot.map(item => `${item.name} x${item.amount}`).join(', ');
+        showToast(`Opened chest! Found: ${lootNames}`, 'success');
+        data.loot.forEach(item => {
+          gs.addCombatLog(`Obtained from chest: ${item.name} x${item.amount}`);
+        });
+      } else {
+        gs.addCombatLog(`The chest is empty!`);
+      }
+    });
+
+    newSocket.on('chestRespawned', (data: { chestIds: string[] }) => {
+      if (!data || !data.chestIds) return;
+      const gs = useGameStore.getState();
+      data.chestIds.forEach(id => {
+        gs.removeOpenedChest(id);
+      });
+      gs.addCombatLog(`Chests have respawned in the area!`);
     });
 
     set({ socket: newSocket });

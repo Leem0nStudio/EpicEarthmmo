@@ -75,6 +75,7 @@ interface GameStore {
   damages: DamageText[];
   combatLog: string[];
   ui: GameUIState;
+  openedChests: string[];
 
   getCombatStats: () => { atk: number; matk: number; def: number; mdef: number; hit: number; flee: number; attackSpeed: number; critChance: number; critDamage: number };
 
@@ -110,6 +111,9 @@ interface GameStore {
   setZeny: (zeny: number) => void;
   setShopNpcId: (npcId: string | null) => void;
   reloadData: () => Promise<void>;
+  setOpenedChests: (ids: string[]) => void;
+  addOpenedChest: (id: string) => void;
+  removeOpenedChest: (id: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -129,6 +133,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   damages: [],
   combatLog: [],
   ui: { isSkillsOpen: false, isStatsOpen: false, isInventoryOpen: false },
+  openedChests: [],
 
   getCombatStats: () => {
     const p = get().player;
@@ -453,5 +458,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (newData) {
       showToast('Game Data Hot-Reloaded!', 'success');
     }
-  }
+  },
+
+  setOpenedChests: (ids) => set({ openedChests: ids }),
+  addOpenedChest: (id) => set((s) => ({ openedChests: s.openedChests.includes(id) ? s.openedChests : [...s.openedChests, id] })),
+  removeOpenedChest: (id) => set((s) => ({ openedChests: s.openedChests.filter(x => x !== id) })),
 }));

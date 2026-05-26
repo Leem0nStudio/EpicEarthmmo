@@ -375,6 +375,7 @@ io.on('connection', (socket) => {
       players,
       enemies,
       initData,
+      openedChests: Array.from(getChestState(defaultMapId).keys()),
     });
 
     socket.broadcast.to(defaultMapId).emit('playerJoined', {
@@ -1405,7 +1406,7 @@ function performMapChange(player: ServerPlayer, socket: any, targetMapId: string
   const enemies = mapManager.getMapEnemies(targetMapId);
   const players = mapManager.getMapPlayers(targetMapId);
 
-  const mapChangeData: MapChangeData = {
+  const mapChangeData: MapChangeData & { openedChests: string[] } = {
     mapId: targetMapId,
     mapName: initData?.mapName ?? targetMapId,
     mapType: initData?.mapType ?? 'field',
@@ -1413,6 +1414,7 @@ function performMapChange(player: ServerPlayer, socket: any, targetMapId: string
     initData: initData!,
     enemies,
     players,
+    openedChests: Array.from(getChestState(targetMapId).keys()),
   };
 
   socket.emit('mapChange', mapChangeData);

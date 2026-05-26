@@ -3,15 +3,17 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 
-export function MapGrass({ count }: { count: number }) {
+export function MapGrass({ count }: { count?: number }) {
+  const safeCount = count || 0;
   const instancedMesh = useMemo(() => {
+    if (safeCount <= 0) return null;
     const dummy = new THREE.Object3D();
     const mesh = new THREE.InstancedMesh(
       new THREE.PlaneGeometry(0.08, 0.15),
       new THREE.MeshBasicMaterial({ color: '#5aaa5a', transparent: true, opacity: 0.6, depthWrite: false }),
-      count,
+      safeCount,
     );
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < safeCount; i++) {
       const x = (Math.random() - 0.5) * 30;
       const z = (Math.random() - 0.5) * 30;
       if (Math.abs(x) < 6 && Math.abs(z) < 6) continue;
@@ -23,9 +25,9 @@ export function MapGrass({ count }: { count: number }) {
     }
     mesh.instanceMatrix.needsUpdate = true;
     return mesh;
-  }, [count]);
+  }, [safeCount]);
 
-  if (count === 0) return null;
+  if (safeCount === 0 || !instancedMesh) return null;
 
   return <primitive object={instancedMesh} />;
 }
