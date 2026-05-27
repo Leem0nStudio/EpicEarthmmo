@@ -6,8 +6,9 @@ import { useNetworkStore } from '@/store/useNetworkStore';
 import { createNavGridFromConfig } from '@/lib/navGrid';
 import { computeChunks, getVisibleChunks, getActiveRegions } from '@/lib/chunkSystem';
 import { currentNavGrid } from '@/lib/currentNavGrid';
+import { getCellAtWorld } from '@/shared/pathfinding';
 import type { MapDecoration, Tile, NavGrid, MapRegion, MapTrigger, BakedLighting, Collider } from '@/shared/schemas';
-import { MapTerrain } from './MapTerrain';
+import { HeightmapTerrain } from './HeightmapTerrain';
 import { MapDecorations } from './MapDecorations';
 import { MapLighting } from './MapLighting';
 import { MapEntities } from './MapEntities';
@@ -135,6 +136,13 @@ export function MapScene({ mapData }: { mapData: MapData }) {
     if (e.object?.userData?.raycastable) return;
     e.stopPropagation();
     const point = e.point;
+
+    const nav = navGrid ?? currentNavGrid.grid;
+    if (nav) {
+      const cell = getCellAtWorld(nav, point.x, point.z);
+      if (!cell || !cell.walkable || cell.isBlocked || cell.isWater) return;
+    }
+
     const target = { x: point.x, y: 0.5, z: point.z };
     setTargetPosition(target);
     setSelectedTargetId(null);
@@ -143,7 +151,7 @@ export function MapScene({ mapData }: { mapData: MapData }) {
     if (ns.socket?.connected) {
       ns.sendMoveToTarget({ targetX: target.x, targetZ: target.z });
     }
-  }, [setTargetPosition, setSelectedTargetId]);
+  }, [setTargetPosition, setSelectedTargetId, navGrid]);
 
   const lighting = mapData.bakedLighting;
 
@@ -163,18 +171,20 @@ export function MapScene({ mapData }: { mapData: MapData }) {
         fogFar={lighting?.fogFar}
       />
 
-      <MapTerrain
+      <HeightmapTerrain
+        navGrid={navGrid}
         tiles={visibleTiles}
         dimensions={mapData.dimensions}
         grassTexture={mapData.grassTexture}
         floorColor={mapData.floorColor}
       />
 
-      <MapGrass count={mapData.grassTuftCount} />
+      <MapGrass count={mapData.grassTuftCount} navGrid={navGrid} />
 
       <MapDecorations
         decorations={visibleDecorations}
         playerPosition={playerPos}
+        navGrid={navGrid}
       />
 
       {mapData.chests?.map((chest) => (

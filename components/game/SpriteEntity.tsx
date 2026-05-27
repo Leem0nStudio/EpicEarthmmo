@@ -196,15 +196,15 @@ interface SortedEntitiesProps {
 export function SortedEntities({ entities }: SortedEntitiesProps) {
   const sorted = useMemo(() => {
     return [...entities].sort((a, b) => {
-      const depthA = a.position.z + a.position.x * 0.1;
-      const depthB = b.position.z + b.position.x * 0.1;
+      const depthA = a.position.z + a.position.y + a.position.x * 0.1;
+      const depthB = b.position.z + b.position.y + b.position.x * 0.1;
       return depthA - depthB;
     });
   }, [entities]);
 
   return (
     <group>
-      {sorted.map(entity => (
+      {sorted.map((entity, i) => (
         <SpriteEntity
           key={entity.id}
           entityId={entity.entityId}
@@ -217,6 +217,7 @@ export function SortedEntities({ entities }: SortedEntitiesProps) {
           hpBar={entity.hpBar}
           isSelected={entity.isSelected}
           nameTag={entity.nameTag}
+          depthOffset={0}
         />
       ))}
     </group>

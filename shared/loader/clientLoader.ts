@@ -17,6 +17,7 @@ import dialogsData from '../data/dialogs.json';
 import pronteraMap from '../data/maps/prontera.json';
 import pronteraFieldsMap from '../data/maps/prontera_fields.json';
 import geffenDungeonMap from '../data/maps/geffen_dungeon.json';
+import { populateTerrainHeights } from '../terrainHeights';
 
 export type { BalanceConfig, EnemyData, SkillTree, ItemDatabase, JobDatabase, MapConfig, DialogDatabase };
 
@@ -38,9 +39,19 @@ export const gameData: LoadedGameData = {
   jobs: jobsData as any,
   dialogs: dialogsData as any,
   maps: [
-    pronteraMap as any,
-    pronteraFieldsMap as any,
-    geffenDungeonMap as any,
+    {
+      ...pronteraMap,
+      navGrid: pronteraMap.navGrid
+        ? populateTerrainHeights({ ...pronteraMap.navGrid, cells: pronteraMap.navGrid.cells.map(c => ({ ...c })) })
+        : undefined,
+    } as any,
+    {
+      ...pronteraFieldsMap,
+      navGrid: pronteraFieldsMap.navGrid
+        ? populateTerrainHeights({ ...pronteraFieldsMap.navGrid, cells: pronteraFieldsMap.navGrid.cells.map(c => ({ ...c })) })
+        : undefined,
+    } as any,
+    { ...geffenDungeonMap } as any,
   ],
 };
 

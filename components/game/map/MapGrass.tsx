@@ -2,8 +2,10 @@
 
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
+import type { NavGrid } from '@/shared/schemas';
+import { getHeightAtWorld } from '@/shared/pathfinding';
 
-export function MapGrass({ count }: { count?: number }) {
+export function MapGrass({ count, navGrid }: { count?: number; navGrid?: NavGrid | null }) {
   const safeCount = Math.max(0, count ?? 0);
   const instancedMesh = useMemo(() => {
     if (safeCount < 1) return null;
@@ -17,7 +19,8 @@ export function MapGrass({ count }: { count?: number }) {
       const x = (Math.random() - 0.5) * 30;
       const z = (Math.random() - 0.5) * 30;
       if (Math.abs(x) < 6 && Math.abs(z) < 6) continue;
-      dummy.position.set(x, 0.06, z);
+      const y = navGrid ? getHeightAtWorld(navGrid, x, z) + 0.05 : 0.06;
+      dummy.position.set(x, y, z);
       dummy.rotation.set(0, Math.random() * Math.PI, 0);
       dummy.scale.set(1 + Math.random() * 0.5, 1 + Math.random() * 0.5, 1);
       dummy.updateMatrix();
@@ -25,7 +28,7 @@ export function MapGrass({ count }: { count?: number }) {
     }
     mesh.instanceMatrix.needsUpdate = true;
     return mesh;
-  }, [safeCount]);
+  }, [safeCount, navGrid]);
 
   if (safeCount < 1 || !instancedMesh) return null;
 

@@ -9,6 +9,8 @@ import { RigidBody, RapierRigidBody } from '@react-three/rapier';
 import { Sprite } from './Sprite';
 import { directionFromAngle, type Direction, type AnimState } from '@/lib/spriteManager';
 import { getMovementInput } from '@/lib/movementController';
+import { getHeightAtWorld } from '@/lib/navGrid';
+import { currentNavGrid } from '@/lib/currentNavGrid';
 import { createPlayerStateMachine, updatePlayerStateMachine } from '@/lib/playerStateMachine';
 import { playerPosition } from '@/lib/playerPosition';
 import { gameData } from '@/shared/loader';
@@ -136,7 +138,8 @@ export function Player() {
     if (hasVelocity) {
       const newX = pos.x + velocityRef.current.x * delta;
       const newZ = pos.z + velocityRef.current.z * delta;
-      pos = { x: newX, y: pos.y, z: newZ };
+      const newY = currentNavGrid.grid ? getHeightAtWorld(currentNavGrid.grid, newX, newZ) : pos.y;
+      pos = { x: newX, y: newY, z: newZ };
       rigidBodyRef.current.setTranslation(pos, true);
     }
 
@@ -153,7 +156,8 @@ export function Player() {
 
     if (corrDistSq > 25.0) {
       // Hard snap for large errors
-      pos = { x: snapPos.x, y: snapPos.y, z: snapPos.z };
+      const snapY = currentNavGrid.grid ? getHeightAtWorld(currentNavGrid.grid, snapPos.x, snapPos.z) : snapPos.y;
+      pos = { x: snapPos.x, y: snapY, z: snapPos.z };
       rigidBodyRef.current.setTranslation(pos, true);
       playerPosition.x = pos.x;
       playerPosition.y = pos.y;
@@ -161,10 +165,13 @@ export function Player() {
       velocityRef.current = { x: 0, z: 0 };
     } else if (corrDistSq > 1.0) {
       const blend = isMoving ? 0.08 : 0.15;
+      const newX = pos.x + corrDx * blend;
+      const newZ = pos.z + corrDz * blend;
+      const newY = currentNavGrid.grid ? getHeightAtWorld(currentNavGrid.grid, newX, newZ) : pos.y;
       pos = {
-        x: pos.x + corrDx * blend,
-        y: pos.y,
-        z: pos.z + corrDz * blend,
+        x: newX,
+        y: newY,
+        z: newZ,
       };
       rigidBodyRef.current.setTranslation(pos, true);
       playerPosition.x = pos.x;

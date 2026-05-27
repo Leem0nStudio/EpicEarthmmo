@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { playerPosition } from '@/lib/playerPosition';
 import * as THREE from 'three';
@@ -12,6 +12,7 @@ const MIN_DIST = 5;
 const MAX_DIST = 22;
 const FOLLOW_SPEED = 0.04;
 const MAP_BOUND_PADDING = 5;
+const PERSPECTIVE_FOV = 50;
 
 interface CameraControllerProps {
   mapDimensions?: { width: number; height: number };
@@ -35,32 +36,29 @@ export function CameraController({
   const targetDist = useRef(BASE_DIST);
   const initialized = useRef(false);
 
+  const theta = fixedAngle ? FIXED_YAW : FIXED_YAW;
+  const phi = fixedAngle ? FIXED_PITCH : FIXED_PITCH;
+
   useEffect(() => {
     if (!initialized.current) {
       const pp = playerPosition;
-      const aspect = size.width / size.height;
-      const portraitScale = Math.max(0.7, Math.min(1.3, (16 / 9) / aspect));
-      const dist = BASE_DIST * portraitScale;
-      const theta = FIXED_YAW;
-      const phi = FIXED_PITCH;
-
       camera.position.set(
-        pp.x + dist * Math.sin(phi) * Math.sin(theta),
-        pp.y + dist * Math.cos(phi) + 2,
-        pp.z + dist * Math.sin(phi) * Math.cos(theta),
+        pp.x + BASE_DIST * Math.sin(phi) * Math.sin(theta),
+        pp.y + BASE_DIST * Math.cos(phi) + 2,
+        pp.z + BASE_DIST * Math.sin(phi) * Math.cos(theta),
       );
       camera.lookAt(pp.x, pp.y + 0.5, pp.z);
+      camera.updateProjectionMatrix();
       camTarget.current.copy(camera.position);
       lookTarget.current.set(pp.x, pp.y + 0.5, pp.z);
     }
-  }, [camera, size]);
+  }, [camera, phi, theta]);
 
   useEffect(() => {
     if (!zoomEnabled) return;
-
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      targetDist.current = Math.min(maxZoom, Math.max(minZoom, targetDist.current + e.deltaY * 0.01));
+      targetDist.current = Math.max(minZoom, Math.min(maxZoom, targetDist.current + e.deltaY * 0.01));
     };
     window.addEventListener('wheel', handleWheel, { passive: false });
     return () => window.removeEventListener('wheel', handleWheel);
@@ -69,14 +67,10 @@ export function CameraController({
   useFrame((_state, delta) => {
     const pp = playerPosition;
     const aspect = size.width / size.height;
-    const portraitScale = Math.max(0.7, Math.min(1.3, (16 / 9) / aspect));
-    const baseDist = BASE_DIST * portraitScale;
 
-    currentDist.current += (targetDist.current - currentDist.current) * (1 - Math.pow(1 - FOLLOW_SPEED, delta * 60));
-    const dist = currentDist.current * (baseDist / BASE_DIST);
-
-    const theta = fixedAngle ? FIXED_YAW : FIXED_YAW;
-    const phi = fixedAngle ? FIXED_PITCH : FIXED_PITCH;
+    const lerpFactor = 1 - Math.pow(1 - FOLLOW_SPEED, delta * 60);
+    currentDist.current = THREE.MathUtils.lerp(currentDist.current, targetDist.current, lerpFactor);
+    const dist = currentDist.current;
 
     const lookX = pp.x;
     const lookZ = pp.z;
@@ -89,7 +83,7 @@ export function CameraController({
     lookTarget.current.set(lookX, pp.y + 0.5, lookZ);
 
     if (mapDimensions) {
-      const zoomScale = currentDist.current / BASE_DIST;
+      const zoomScale = dist / BASE_DIST;
       const padding = MAP_BOUND_PADDING * zoomScale;
       const halfW = mapDimensions.width / 2 + padding;
       const halfH = mapDimensions.height / 2 + padding;
@@ -97,9 +91,19 @@ export function CameraController({
       camTarget.current.z = Math.max(-halfH, Math.min(halfH, camTarget.current.z));
     }
 
-    const smoothLerp = 1 - Math.pow(1 - FOLLOW_SPEED, delta * 60);
-    camera.position.lerp(camTarget.current, smoothLerp);
+    if (camera.isOrthographicCamera) {
+      const viewH = 2 * dist * Math.tan(THREE.MathUtils.degToRad(PERSPECTIVE_FOV / 2));
+      const viewW = viewH * aspect;
+      camera.left = -viewW / 2;
+      camera.right = viewW / 2;
+      camera.top = viewH / 2;
+      camera.bottom = -viewH / 2;
+      camera.zoom = 1;
+    }
+
+    camera.position.lerp(camTarget.current, lerpFactor);
     camera.lookAt(lookTarget.current);
+    camera.updateProjectionMatrix();
 
     if (!initialized.current) {
       camera.position.copy(camTarget.current);
