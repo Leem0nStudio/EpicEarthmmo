@@ -6,6 +6,9 @@
   },
   "movement": {
     "playerSpeed": 8,
+    "walkSpeedMs": 150,
+    "moveDiagonalCost": 14,
+    "moveCost": 10,
     "clickMoveRange": 30,
     "interactRange": 2.5,
     "npcTalkRange": 2.0,

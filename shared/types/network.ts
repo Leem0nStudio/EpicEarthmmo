@@ -29,6 +29,12 @@ export interface PlayerInput {
   timestamp?: number;
 }
 
+export interface GridPathStep {
+  gx: number;
+  gz: number;
+  cumTimeMs: number;
+}
+
 export interface MoveToTargetData {
   targetX: number;
   targetZ: number;
@@ -36,6 +42,12 @@ export interface MoveToTargetData {
     type: 'npc' | 'chest' | 'warp';
     id: string;
   };
+}
+
+export interface MoveAcceptedData {
+  path: GridPathStep[];
+  startTime: number;
+  walkSpeedMs: number;
 }
 
 export interface InteractionReadyData {

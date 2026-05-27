@@ -1,5 +1,5 @@
 import type { PlayerStats, EquipmentSlot } from '../shared/schemas/gameState';
-import type { PlayerInput } from '../shared/types/network';
+import type { PlayerInput, GridPathStep } from '../shared/types/network';
 
 export interface SnapshotPlayer {
   x: number; y: number; z: number;
@@ -40,8 +40,9 @@ export interface ServerPlayer {
   isCasting?: boolean;
   castingSkillId?: string;
 
-  moveTarget: { x: number; z: number } | null;
-  path: { x: number; z: number }[] | null;
-  pathIndex: number;
+  gridPath: GridPathStep[] | null;
+  pathStartTime: number;
+  walkSpeedMs: number;
+  lastValidatedCellIdx: number;
   pendingInteraction: { type: string; id: string; targetX: number; targetZ: number } | null;
 }

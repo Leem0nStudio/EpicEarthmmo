@@ -13,8 +13,8 @@ import {
 } from '../shared/loader/formulaEngine';
 import { MapManager, type RuntimeEnemy } from './MapManager';
 import type { ServerPlayer } from './types';
-import type { PlayerInput, WorldSnapshot, SnapshotPlayer, MapChangeData, SkillCastRequest, MoveToTargetData, InteractionReadyData } from '../shared/types/network';
-import { findPath, smoothPath, getCellAtWorld } from '../shared/pathfinding';
+import type { PlayerInput, WorldSnapshot, SnapshotPlayer, MapChangeData, SkillCastRequest, MoveToTargetData, InteractionReadyData, MoveAcceptedData, GridPathStep } from '../shared/types/network';
+import { findPath, smoothPath, getCellAtWorld, worldToGrid, gridToWorld, getCell } from '../shared/pathfinding';
 import { SkillEngine } from './SkillEngine';
 import type { BuffableEntity } from './BuffManager';
 import type { GroundEffectTarget } from './GroundEffectManager';
@@ -238,9 +238,10 @@ function createDefaultPlayer(id: string, name: string): ServerPlayer {
     equippedItems: {},
     inventory: [{ itemId: 'red_potion', amount: 10 }],
     zeny: 100,
-    moveTarget: null,
-    path: null,
-    pathIndex: 0,
+    gridPath: null,
+    pathStartTime: 0,
+    walkSpeedMs: balance.movement.walkSpeedMs,
+    lastValidatedCellIdx: 0,
     pendingInteraction: null,
   };
 }
@@ -398,21 +399,70 @@ io.on('connection', (socket) => {
 
   socket.on('moveToTarget', (data: MoveToTargetData) => {
     if (!player) return;
-    player.moveTarget = { x: data.targetX, z: data.targetZ };
-    player.path = null;
-    player.pathIndex = 0;
+
+    const instance = mapManager.getMap(player.currentMapId);
+    const navGrid = instance?.navGrid ?? null;
+
     if (data.interaction) {
       player.pendingInteraction = { ...data.interaction, targetX: data.targetX, targetZ: data.targetZ };
     } else {
       player.pendingInteraction = null;
     }
+
+    if (!navGrid) {
+      // No navgrid — direct move
+      const walkSpeedMs = player.walkSpeedMs;
+      player.gridPath = [
+        { gx: 0, gz: 0, cumTimeMs: 0 },
+        { gx: 0, gz: 0, cumTimeMs: walkSpeedMs },
+      ];
+      player.pathStartTime = Date.now();
+      player.lastValidatedCellIdx = 0;
+      const acceptData: MoveAcceptedData = {
+        path: player.gridPath,
+        startTime: player.pathStartTime,
+        walkSpeedMs,
+      };
+      socket.emit('moveAccepted', acceptData);
+      return;
+    }
+
+    const rawPath = findPath(navGrid, player.x, player.z, data.targetX, data.targetZ);
+    if (!rawPath || rawPath.length === 0) return;
+    const smoothed = smoothPath(navGrid, rawPath);
+
+    const walkSpeedMs = player.walkSpeedMs;
+    const moveDiagCost = balance.movement.moveDiagonalCost ?? 14;
+    const moveCost = balance.movement.moveCost ?? 10;
+
+    const gridPath: GridPathStep[] = [];
+    for (let i = 0; i < smoothed.length; i++) {
+      const [gx, gz] = worldToGrid(navGrid, smoothed[i].x, smoothed[i].z);
+      if (i === 0) {
+        gridPath.push({ gx, gz, cumTimeMs: 0 });
+      } else {
+        const prev = gridPath[i - 1];
+        const isDiagonal = gx !== prev.gx && gz !== prev.gz;
+        const stepTime = isDiagonal
+          ? Math.floor(walkSpeedMs * moveDiagCost / moveCost)
+          : walkSpeedMs;
+        gridPath.push({ gx, gz, cumTimeMs: prev.cumTimeMs + stepTime });
+      }
+    }
+
+    player.gridPath = gridPath;
+    player.pathStartTime = Date.now();
+    player.lastValidatedCellIdx = 0;
+
+    const acceptData: MoveAcceptedData = { path: gridPath, startTime: player.pathStartTime, walkSpeedMs };
+    socket.emit('moveAccepted', acceptData);
   });
 
   socket.on('cancelMove', () => {
     if (!player) return;
-    player.moveTarget = null;
-    player.path = null;
-    player.pathIndex = 0;
+    player.gridPath = null;
+    player.pathStartTime = 0;
+    player.lastValidatedCellIdx = 0;
     player.pendingInteraction = null;
   });
 
@@ -1436,9 +1486,9 @@ function executePendingInteraction(player: ServerPlayer, io: any) {
   if (!interaction) return;
 
   player.pendingInteraction = null;
-  player.moveTarget = null;
-  player.path = null;
-  player.pathIndex = 0;
+  player.gridPath = null;
+  player.pathStartTime = 0;
+  player.lastValidatedCellIdx = 0;
 
   const mapCfg = mapConfigs.find((m: any) => m.id === player.currentMapId);
   if (!mapCfg) return;
@@ -1652,15 +1702,15 @@ function tick() {
         hasDirectInput = (dx !== 0 || dz !== 0);
       }
 
-      // ── Direct input clears target movement ──
+      // ── Direct input clears grid path ──
       if (hasDirectInput) {
-        p.moveTarget = null;
-        p.path = null;
-        p.pathIndex = 0;
+        p.gridPath = null;
+        p.pathStartTime = 0;
+        p.lastValidatedCellIdx = 0;
         p.pendingInteraction = null;
       }
 
-      // ── Two movement modes: direct input OR target following ──
+      // ── Two movement modes: WASD direct input OR RO-style grid path following ──
       if (hasDirectInput) {
         if (dx !== 0 || dz !== 0) {
           const len = Math.sqrt(dx * dx + dz * dz);
@@ -1720,80 +1770,59 @@ function tick() {
           p.x = Math.max(-halfW, Math.min(halfW, p.x));
           p.z = Math.max(-halfH, Math.min(halfH, p.z));
         }
-      } else if (p.moveTarget) {
-        // ── Target mode: path following at constant speed ──
-        const speed = balance.movement.playerSpeed;
+      } else if (p.gridPath) {
+        // ── RO-style: elapsed-time cell advancement ──
+        const elapsed = Date.now() - p.pathStartTime;
+        if (elapsed < 0) continue;
 
-        // Compute path if needed
-        if (!p.path || p.pathIndex >= (p.path?.length || 0)) {
-          if (instance.navGrid) {
-            const rawPath = findPath(instance.navGrid, p.x, p.z, p.moveTarget.x, p.moveTarget.z);
-            if (rawPath && rawPath.length > 0) {
-              p.path = smoothPath(instance.navGrid, rawPath);
-              p.pathIndex = 0;
-            } else {
-              // Path not found — stop
-              p.moveTarget = null;
-              p.path = null;
-              p.pendingInteraction = null;
-            }
-          } else {
-            // No navgrid — move directly
-            p.path = [{ x: p.moveTarget.x, z: p.moveTarget.z }];
-            p.pathIndex = 0;
+        let lo = 0, hi = p.gridPath.length - 1;
+        while (lo < hi) {
+          const mid = Math.ceil((lo + hi) / 2);
+          if (p.gridPath[mid].cumTimeMs <= elapsed) lo = mid;
+          else hi = mid - 1;
+        }
+        const currentIdx = lo;
+
+        let blocked = false;
+        for (let i = p.lastValidatedCellIdx + 1; i <= currentIdx; i++) {
+          const step = p.gridPath[i];
+          const cell = instance.navGrid
+            ? getCell(instance.navGrid, step.gx, step.gz)
+            : null;
+          if (cell && !cell.walkable) {
+            blocked = true;
+            break;
           }
         }
+        p.lastValidatedCellIdx = currentIdx;
 
-        if (p.path && p.pathIndex < p.path.length) {
-          const waypoint = p.path[p.pathIndex];
-          const ddx = waypoint.x - p.x;
-          const ddz = waypoint.z - p.z;
-          const dist = Math.sqrt(ddx * ddx + ddz * ddz);
+        if (blocked) {
+          p.gridPath = null;
+          p.pathStartTime = 0;
+          p.lastValidatedCellIdx = 0;
+          p.pendingInteraction = null;
+        } else if (instance.navGrid) {
+          const [wx, wz] = gridToWorld(
+            instance.navGrid,
+            p.gridPath[currentIdx].gx,
+            p.gridPath[currentIdx].gz,
+          );
+          p.x = wx;
+          p.z = wz;
+          p.vx = 0;
+          p.vz = 0;
 
-          if (dist < 0.5) {
-            p.pathIndex++;
-            if (p.pathIndex >= p.path.length) {
-              p.vx = 0; p.vz = 0;
-              if (p.pendingInteraction) {
-                executePendingInteraction(p, io);
-              } else {
-                io.to(p.id).emit('moveCompleted', {});
-              }
-              p.moveTarget = null;
-              p.path = null;
-              p.pathIndex = 0;
-            }
-          } else {
-            const moveAmount = speed * tickTimeSec;
-            const step = Math.min(moveAmount, dist);
-            const nx = p.x + (ddx / dist) * step;
-            const nz = p.z + (ddz / dist) * step;
-
-            // Navgrid validation
-            let canMove = true;
-            if (instance.navGrid) {
-              const cell = getCellAtWorld(instance.navGrid, nx, nz);
-              canMove = cell ? cell.walkable : false;
-            }
-            if (canMove) {
-              p.x = nx;
-              p.z = nz;
-              p.vx = (ddx / dist) * speed;
-              p.vz = (ddz / dist) * speed;
+          if (currentIdx >= p.gridPath.length - 1) {
+            p.gridPath = null;
+            p.pathStartTime = 0;
+            p.lastValidatedCellIdx = 0;
+            if (p.pendingInteraction) {
+              executePendingInteraction(p, io);
             } else {
-              // Hit wall — recompute path next tick
-              p.path = null;
-              p.pathIndex = 0;
+              io.to(p.id).emit('moveCompleted', {});
             }
           }
-        } else {
-          p.vx = 0; p.vz = 0;
         }
-
-        const halfW = instance.config.dimensions.width / 2;
-        const halfH = instance.config.dimensions.height / 2;
-        p.x = Math.max(-halfW, Math.min(halfW, p.x));
-        p.z = Math.max(-halfH, Math.min(halfH, p.z));
       } else {
         // ── No input — decelerate ──
         const frictionFactor = Math.min(1, 10 * tickTimeSec);
@@ -1944,7 +1973,7 @@ function tick() {
     if (isFullTick) {
       const full: WorldSnapshot = { tick: tickNum, players: {}, enemies: {} };
       for (const [id, p] of instance.players) {
-        const isMoving = p.vx !== 0 || p.vz !== 0;
+        const isMoving = (p.gridPath !== null) || (p.vx !== 0 || p.vz !== 0);
         const snap: SnapshotPlayer = { x: p.x, y: p.y, z: p.z, hp: p.hp, maxHp: p.maxHp, sp: p.sp, maxSp: p.maxSp, lastProcessedSeq: p.lastProcessedSeq, vx: p.vx, vz: p.vz, moving: isMoving };
         full.players[id] = snap;
         p.lastSentSnapshot = snap;
@@ -1957,7 +1986,7 @@ function tick() {
       for (const [socketId, p] of instance.players) {
         const snap: WorldSnapshot = { tick: tickNum, players: {}, enemies: {} };
 
-        const isMoving = p.vx !== 0 || p.vz !== 0;
+        const isMoving = (p.gridPath !== null) || (p.vx !== 0 || p.vz !== 0);
         const selfSnap: SnapshotPlayer = { x: p.x, y: p.y, z: p.z, hp: p.hp, maxHp: p.maxHp, sp: p.sp, maxSp: p.maxSp, lastProcessedSeq: p.lastProcessedSeq, vx: p.vx, vz: p.vz, moving: isMoving };
         snap.players[socketId] = selfSnap;
         p.lastSentSnapshot = selfSnap;
@@ -1965,7 +1994,7 @@ function tick() {
         for (const [otherId, other] of instance.players) {
           if (otherId === socketId) continue;
           if (distSq(p, other) > balance.network.interestRange * balance.network.interestRange) continue;
-          const otherMoving = other.vx !== 0 || other.vz !== 0;
+          const otherMoving = (other.gridPath !== null) || (other.vx !== 0 || other.vz !== 0);
           const otherSnap: SnapshotPlayer = { x: other.x, y: other.y, z: other.z, hp: other.hp, maxHp: other.maxHp, sp: other.sp, maxSp: other.maxSp, vx: other.vx, vz: other.vz, moving: otherMoving };
           if (!other.lastSentSnapshot || snapshotPlayerChanged(other.lastSentSnapshot, otherSnap)) {
             snap.players[otherId] = otherSnap;
