@@ -70,11 +70,21 @@ export function MapScene({ mapData }: { mapData: MapData }) {
   const navGrid = useMemo(() => {
     if (mapData.navGrid) {
       const result = createNavGridFromConfig(mapData.navGrid);
+      if (mapData.tiles && result.cells) {
+        for (const tile of mapData.tiles) {
+          const idx = tile.position[1] * result.cols + tile.position[0];
+          if (idx >= 0 && idx < result.cells.length) {
+            const cell = result.cells[idx];
+            cell.terrainType = tile.terrainType;
+            if (tile.height) cell.height = Math.max(cell.height, tile.height);
+          }
+        }
+      }
       populateTerrainHeights(result);
       return result;
     }
     return null;
-  }, [mapData.navGrid]);
+  }, [mapData.navGrid, mapData.tiles]);
 
   useEffect(() => {
     currentNavGrid.grid = navGrid;
