@@ -7,6 +7,7 @@ import { createNavGridFromConfig } from '@/lib/navGrid';
 import { computeChunks, getVisibleChunks, getActiveRegions } from '@/lib/chunkSystem';
 import { currentNavGrid } from '@/lib/currentNavGrid';
 import { getCellAtWorld } from '@/shared/pathfinding';
+import { populateTerrainHeights } from '@/shared/terrainHeights';
 import type { MapDecoration, Tile, NavGrid, MapRegion, MapTrigger, BakedLighting, Collider } from '@/shared/schemas';
 import { HeightmapTerrain } from './HeightmapTerrain';
 import { MapDecorations } from './MapDecorations';
@@ -67,7 +68,11 @@ export function MapScene({ mapData }: { mapData: MapData }) {
   const playerPos = useGameStore((state) => state.position);
 
   const navGrid = useMemo(() => {
-    if (mapData.navGrid) return createNavGridFromConfig(mapData.navGrid);
+    if (mapData.navGrid) {
+      const result = createNavGridFromConfig(mapData.navGrid);
+      populateTerrainHeights(result);
+      return result;
+    }
     return null;
   }, [mapData.navGrid]);
 
