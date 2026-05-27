@@ -77,7 +77,9 @@ function PortalEffect({ color, hovered }: { color: string; hovered: boolean }) {
     }
 
     if (particlesRef.current) {
-      const pos = particlesRef.current.geometry.attributes.position.array as Float32Array;
+      const attributes = particlesRef.current.geometry?.attributes;
+      if (!attributes?.position?.array) return;
+      const pos = attributes.position.array as Float32Array;
       for (let i = 0; i < particleCount; i++) {
         const p = particleData[i];
         p.angle += p.speed * delta * 2;
@@ -88,7 +90,7 @@ function PortalEffect({ color, hovered }: { color: string; hovered: boolean }) {
         pos[i * 3 + 1] = y;
         pos[i * 3 + 2] = z;
       }
-      particlesRef.current.geometry.attributes.position.needsUpdate = true;
+      attributes.position.needsUpdate = true;
     }
   });
 

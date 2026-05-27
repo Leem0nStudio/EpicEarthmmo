@@ -4,9 +4,9 @@ import React, { useMemo } from 'react';
 import * as THREE from 'three';
 
 export function MapGrass({ count }: { count?: number }) {
-  const safeCount = count || 0;
+  const safeCount = Math.max(0, count ?? 0);
   const instancedMesh = useMemo(() => {
-    if (safeCount <= 0) return null;
+    if (safeCount < 1) return null;
     const dummy = new THREE.Object3D();
     const mesh = new THREE.InstancedMesh(
       new THREE.PlaneGeometry(0.08, 0.15),
@@ -27,7 +27,7 @@ export function MapGrass({ count }: { count?: number }) {
     return mesh;
   }, [safeCount]);
 
-  if (safeCount === 0 || !instancedMesh) return null;
+  if (safeCount < 1 || !instancedMesh) return null;
 
   return <primitive object={instancedMesh} />;
 }

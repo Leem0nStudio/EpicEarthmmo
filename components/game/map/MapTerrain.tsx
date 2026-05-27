@@ -165,6 +165,8 @@ function InstancedTerrainGroup({ terrainType, instances, tileSize, worldOffsetX,
     mesh.instanceMatrix.needsUpdate = true;
   }, [instances, tileSize, worldOffsetX, worldOffsetZ]);
 
+  if (instances.length === 0) return null;
+
   return (
     <instancedMesh
       ref={meshRef}

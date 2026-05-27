@@ -16,6 +16,7 @@ import { ProjectileRenderer } from './ProjectileRenderer';
 import { BuffOverlay } from './BuffOverlay';
 import { DialogWindow } from './ui/DialogWindow';
 import { ShopWindow } from './ui/ShopWindow';
+import { ErrorBoundary } from './ErrorBoundary';
 import { useNetworkStore } from '@/store/useNetworkStore';
 import { gameData } from '@/shared/loader';
 
@@ -54,6 +55,7 @@ export function GameScene({ characterName }: { characterName?: string }) {
   return (
     <div className="w-full h-full" style={{ touchAction: 'none' }}>
       <NetworkManager playerName={characterName || 'Player'} />
+      <ErrorBoundary>
       <Canvas shadows orthographic={false} dpr={[1, 2]} camera={{ fov: 50, position: [0, 14, 16], near: 0.1, far: 100 }}>
         <Suspense fallback={null}>
           <Physics debug={false}>
@@ -84,6 +86,7 @@ export function GameScene({ characterName }: { characterName?: string }) {
           </EffectComposer>
         </Suspense>
       </Canvas>
+      </ErrorBoundary>
       <BuffOverlay />
       <DialogWindow />
       <ShopWindow />

@@ -67,19 +67,21 @@ export function Sprite({
       const geo = meshRef.current.geometry;
       if (geo && 'attributes' in geo) {
         const uvs = geo.attributes.uv;
-        const uvsArray = uvs.array as Float32Array;
-        const rw = info.repeatX;
-        const ox = info.offsetX;
+        if (uvs && uvs.array) {
+          const uvsArray = uvs.array as Float32Array;
+          const rw = info.repeatX;
+          const ox = info.offsetX;
 
-        uvsArray[0] = ox;
-        uvsArray[1] = 1;
-        uvsArray[2] = ox + rw;
-        uvsArray[3] = 1;
-        uvsArray[4] = ox;
-        uvsArray[5] = 0;
-        uvsArray[6] = ox + rw;
-        uvsArray[7] = 0;
-        uvs.needsUpdate = true;
+          uvsArray[0] = ox;
+          uvsArray[1] = 1;
+          uvsArray[2] = ox + rw;
+          uvsArray[3] = 1;
+          uvsArray[4] = ox;
+          uvsArray[5] = 0;
+          uvsArray[6] = ox + rw;
+          uvsArray[7] = 0;
+          uvs.needsUpdate = true;
+        }
       }
 
       spriteInfo.current = info;
