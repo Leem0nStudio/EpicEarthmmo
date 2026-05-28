@@ -15,7 +15,7 @@
 - [ ] **Performance profiling**: verify instanced terrain + decoration LOD works within budget on all 3 maps
 
 ## Network Engineer
-- [ ] **RTT measurement**: ping/pong socket events para calcular latencia del cliente y usarla en lag compensation
+- [x] **RTT measurement**: ping/pong socket events, RTT tracked per player on server, lag-compensated attack range and client reconciliation
 - [x] **saveProgress Zod validation**: server acepta `any` JSON sin schema — FIXED con SaveDataSchema
 - [x] **Trade fix**: `acceptTrade` solo emite `success` — FIXED con transferencia real items/zeny + rollback
 - [ ] **Hit/Flee feedback**: MISS flotante + texto de daño para habilitar hit/flee evasion

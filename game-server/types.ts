@@ -45,4 +45,5 @@ export interface ServerPlayer {
   walkSpeedMs: number;
   lastValidatedCellIdx: number;
   pendingInteraction: { type: string; id: string; targetX: number; targetZ: number } | null;
+  rtt: number;
 }

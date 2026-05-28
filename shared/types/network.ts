@@ -1,3 +1,12 @@
+export interface PingMessage {
+  clientTime: number;
+}
+
+export interface PongMessage {
+  clientTime: number;
+  serverTime: number;
+}
+
 export interface PeerPlayerState {
   x: number;
   y: number;

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import type {
   PeerPlayerState, ChatMessage, TradeOffer, WorldSnapshot, PlayerInput,
-  ActiveBuffData, MoveToTargetData, InteractionReadyData,
+  ActiveBuffData, MoveToTargetData, InteractionReadyData, PongMessage,
 } from '@/shared/types/network';
 import type { EnemyState } from '@/shared/schemas/gameState';
 import { gameData } from '@/shared/loader';
@@ -29,6 +29,7 @@ interface NetworkStore {
     theirOffer: TradeOffer;
   } | null;
   lastSnapshotPos: { x: number; y: number; z: number };
+  rtt: number;
 
   initSocket: (playerName: string, characterId?: string) => void;
   sendInput: (input: PlayerInput) => void;
@@ -39,6 +40,7 @@ interface NetworkStore {
   castSkill: (skillId: string, targetId?: string, targetX?: number, targetZ?: number, directionX?: number, directionZ?: number) => void;
   requestWarp: (warpId: string) => void;
   updateRemotePlayer: (id: string, state: Partial<PeerPlayerState>) => void;
+  updateLatency: (rtt: number) => void;
 
   // Trade
   requestTrade: (targetSocketId: string) => void;
@@ -61,6 +63,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   tradeRequest: null,
   activeTrade: null,
   lastSnapshotPos: { x: 0, y: 0.5, z: 0 },
+  rtt: 0,
 
   initSocket: async (playerName: string, characterId?: string) => {
     if (get().socket?.connected) return;
@@ -428,6 +431,15 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       gs.addCombatLog(`Chests have respawned in the area!`);
     });
 
+    newSocket.on('pong', (data: PongMessage) => {
+      if (!data || !data.clientTime) return;
+      const now = Date.now();
+      const measuredRtt = now - data.clientTime;
+      if (measuredRtt > 0 && measuredRtt < 10000) {
+        set({ rtt: measuredRtt });
+      }
+    });
+
     set({ socket: newSocket });
   },
 
@@ -535,6 +547,11 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   requestWarp: (warpId: string) => {
     const s = get().socket;
     if (s?.connected) s.emit('requestWarp', { warpId });
+  },
+
+  updateLatency: (rtt: number) => {
+    const s = get().socket;
+    if (s?.connected) s.emit('updateLatency', { rtt });
   },
 
   updateRemotePlayer: (id, state) => set(s => {

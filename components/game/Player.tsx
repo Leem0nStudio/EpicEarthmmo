@@ -291,14 +291,19 @@ export function Player() {
     playerPosition.y = pos.y;
     playerPosition.z = pos.z;
 
-    // ── Server position reconciliation (gentle, only when not following path) ──
+    // ── Server position reconciliation with lag compensation ──
     if (moveStateRef.current.mode !== 'followingPath') {
       const snapPos = networkStore.lastSnapshotPos;
       const corrDx = snapPos.x - pos.x;
       const corrDz = snapPos.z - pos.z;
       const corrDistSq = corrDx * corrDx + corrDz * corrDz;
 
-      if (corrDistSq > 25.0) {
+      const rttSec = networkStore.rtt / 1000;
+      const expectedError = SPEED * rttSec;
+      const snapThresholdSq = Math.max(25.0, expectedError * expectedError * 4);
+      const blendThresholdSq = Math.max(1.0, expectedError * expectedError);
+
+      if (corrDistSq > snapThresholdSq) {
         const snapY = navGrid ? getHeightAtWorld(navGrid, snapPos.x, snapPos.z) : snapPos.y;
         pos = { x: snapPos.x, y: snapY, z: snapPos.z };
         rigidBodyRef.current.setTranslation(pos, true);
@@ -306,7 +311,7 @@ export function Player() {
         playerPosition.y = pos.y;
         playerPosition.z = pos.z;
         velocityRef.current = { x: 0, z: 0 };
-      } else if (corrDistSq > 1.0) {
+      } else if (corrDistSq > blendThresholdSq) {
         const blend = 0.12;
         const newX = pos.x + corrDx * blend;
         const newZ = pos.z + corrDz * blend;

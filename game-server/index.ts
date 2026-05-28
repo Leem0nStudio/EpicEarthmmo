@@ -242,6 +242,7 @@ function createDefaultPlayer(id: string, name: string): ServerPlayer {
     walkSpeedMs: calculateWalkSpeedMs(defaultPlayer.baseStats.agi ?? 0, balance),
     lastValidatedCellIdx: 0,
     pendingInteraction: null,
+    rtt: 0,
   };
 }
 
@@ -410,6 +411,16 @@ io.on('connection', (socket) => {
     socket.join(defaultMapId);
   });
 
+  socket.on('ping', (data: { clientTime: number }) => {
+    socket.emit('pong', { clientTime: data.clientTime, serverTime: Date.now() });
+  });
+
+  socket.on('updateLatency', (data: { rtt: number }) => {
+    if (player && typeof data.rtt === 'number') {
+      player.rtt = Math.max(0, Math.min(data.rtt, 5000));
+    }
+  });
+
   socket.on('input', (input: PlayerInput) => {
     if (!player) return;
     const dirX = Math.max(-1, Math.min(1, input.dirX || 0));
@@ -514,10 +525,12 @@ io.on('connection', (socket) => {
     if (now - player.lastAttackTime < cooldownMs) return;
     player.lastAttackTime = now;
 
-    // ── Range check (use skill range + class passive) ──
+    // ── Range check with lag compensation ──
     const baseAttackRange = skillDef?.range ?? balance.combat.attackRange;
     const attackRange = getAttackRange(baseAttackRange, player.jobClass, jobs as JobClass[]);
-    if (distSq(player, enemy.position) > attackRange * attackRange) {
+    const lagTolerance = (player.rtt / 1000) * balance.enemy.defaultMoveSpeed;
+    const compensatedRange = attackRange + lagTolerance;
+    if (distSq(player, enemy.position) > compensatedRange * compensatedRange) {
       socket.emit('attackResult', { targetId: data.targetId, damage: 0, usedSkill: false, newSp: player.sp, hp: enemy.hp, isDead: false, error: 'Target out of range' });
       return;
     }
