@@ -100,18 +100,21 @@ export function Player() {
   });
   const pathDirRef = useRef<Direction>('S');
 
+  const socket = useNetworkStore(s => s.socket);
+  const jobClass = useGameStore(s => s.player.jobClass);
+  const entityId = JOB_TO_ENTITY[jobClass] || 'novice_m';
+
   // Listen for server moveAccepted / moveCompleted
   useEffect(() => {
-    const ns = useNetworkStore.getState();
-    const socket = ns.socket;
     if (!socket) return;
 
     const onMoveAccepted = (data: MoveAcceptedData) => {
       if (!data.path || data.path.length < 2) return;
+
       moveStateRef.current = {
         mode: 'followingPath',
         path: data.path,
-        receiveTime: Date.now(),
+        receiveTime: data.startTime,
         walkSpeedMs: data.walkSpeedMs,
       };
     };
@@ -122,17 +125,22 @@ export function Player() {
       };
     };
 
+    const onMoveBlocked = () => {
+      moveStateRef.current = {
+        mode: 'idle', path: [], receiveTime: 0, walkSpeedMs: 150,
+      };
+    };
+
     socket.on('moveAccepted', onMoveAccepted);
     socket.on('moveCompleted', onMoveCompleted);
+    socket.on('moveBlocked', onMoveBlocked);
 
     return () => {
       socket.off('moveAccepted', onMoveAccepted);
       socket.off('moveCompleted', onMoveCompleted);
+      socket.off('moveBlocked', onMoveBlocked);
     };
-  }, []);
-
-  const jobClass = useGameStore(s => s.player.jobClass);
-  const entityId = JOB_TO_ENTITY[jobClass] || 'novice_m';
+  }, [socket]);
 
   useFrame((state, delta) => {
     if (!rigidBodyRef.current) return;
@@ -147,8 +155,8 @@ export function Player() {
     const gameStore = useGameStore.getState();
     const networkStore = useNetworkStore.getState();
     const {
-      setTargetPosition, setInputDirection,
-      selectedTargetId, enemies, player,
+      setInputDirection,
+      selectedTargetId, enemies,
     } = gameStore;
 
     const SPEED = balance.movement.playerSpeed;
@@ -160,29 +168,25 @@ export function Player() {
     let pos = rigidBodyRef.current.translation();
     const currentVec = new Vector3(pos.x, pos.y, pos.z);
 
-    // ── Get raw WASD/joystick input ──
-    const { input: rawInput, hasKeyboardInput } = getMovementInput();
-    let inputDir = { x: rawInput.x, z: rawInput.z };
-    inputDir = rotateInput(inputDir);
-
     const mov = moveStateRef.current;
 
-    // ── WASD input cancels grid path ──
-    if (hasKeyboardInput && (inputDir.x !== 0 || inputDir.z !== 0)) {
-      if (mov.mode === 'followingPath') {
-        moveStateRef.current = {
-          mode: 'idle', path: [], receiveTime: 0, walkSpeedMs: 150,
-        };
-        const ns = useNetworkStore.getState();
-        if (ns.socket?.connected) {
-          ns.socket.emit('cancelMove');
-        }
+    // ── Determine effective input direction ──
+    let effectiveInput: { x: number; z: number } | null = null;
+    let inputSource: 'keyboard' | 'autofollow' | null = null;
+    let isAttacking = false;
+
+    // 1. WASD/joystick takes priority
+    const { input: rawInput, hasKeyboardInput } = getMovementInput();
+    if (hasKeyboardInput) {
+      const rotated = rotateInput(rawInput);
+      if (rotated.x !== 0 || rotated.z !== 0) {
+        effectiveInput = rotated;
+        inputSource = 'keyboard';
       }
     }
 
-    // ── Auto-follow enemy if selected ──
-    let isAttacking = false;
-    if (selectedTargetId) {
+    // 2. Auto-follow if no direct input
+    if (!effectiveInput && selectedTargetId) {
       const enemy = enemies[selectedTargetId];
       if (enemy && !enemy.isDead) {
         const enemyPos = new Vector3(enemy.position.x, enemy.position.y, enemy.position.z);
@@ -195,38 +199,42 @@ export function Player() {
             isAttacking = true;
             networkStore.attackTarget(selectedTargetId);
           }
-          if (inputDir.x === 0 && inputDir.z === 0) {
-            inputDir = { x: 0, z: 0 };
-          }
         } else {
           const dx = enemy.position.x - pos.x;
           const dz = enemy.position.z - pos.z;
           const len = Math.sqrt(dx * dx + dz * dz);
           if (len > 0.3) {
-            inputDir = { x: dx / len, z: dz / len };
+            effectiveInput = { x: dx / len, z: dz / len };
+            inputSource = 'autofollow';
           }
         }
       }
     }
 
-    setInputDirection(inputDir);
+    // 3. Cancel grid path if we have direct input from ANY source
+    if (effectiveInput && mov.mode === 'followingPath') {
+      moveStateRef.current = {
+        mode: 'idle', path: [], receiveTime: 0, walkSpeedMs: 150,
+      };
+      if (inputSource === 'keyboard') {
+        if (networkStore.socket?.connected) {
+          networkStore.socket.emit('cancelMove');
+        }
+      }
+    }
 
-    // ── Determine movement mode ──
-    const isWASD = hasKeyboardInput && (inputDir.x !== 0 || inputDir.z !== 0);
+    setInputDirection(effectiveInput || { x: 0, z: 0 });
 
-    if (mov.mode === 'followingPath' && navGrid) {
-      // ── RO-style grid path interpolation ──
-      const gridPos = computeGridPosition(mov, navGrid);
+    // ── Movement modes ──
+    if (moveStateRef.current.mode === 'followingPath' && navGrid) {
+      // RO-style grid path interpolation
+      const gridPos = computeGridPosition(moveStateRef.current, navGrid);
       if (gridPos) {
         pos = { x: gridPos.x, y: gridPos.y, z: gridPos.z };
         rigidBodyRef.current.setTranslation(pos, true);
         pathDirRef.current = gridPos.dir;
 
-        const isAtEnd = gridPos.animState === 'idle';
-        if (isAtEnd) {
-          moveStateRef.current = {
-            mode: 'idle', path: [], receiveTime: 0, walkSpeedMs: 150,
-          };
+        if (gridPos.animState === 'idle') {
           animStateRef.current = 'idle';
         } else {
           animStateRef.current = 'walk';
@@ -234,29 +242,19 @@ export function Player() {
         directionRef.current = gridPos.dir;
       }
       velocityRef.current = { x: 0, z: 0 };
-    } else if (isWASD) {
-      // ── WASD velocity-based movement ──
-      const isMoving = inputDir.x !== 0 || inputDir.z !== 0;
-      if (isMoving) {
-        velocityRef.current.x += (inputDir.x * SPEED - velocityRef.current.x) * Math.min(1, ACCEL * delta);
-        velocityRef.current.z += (inputDir.z * SPEED - velocityRef.current.z) * Math.min(1, ACCEL * delta);
-      } else {
-        velocityRef.current.x -= velocityRef.current.x * Math.min(1, FRICTION * delta);
-        velocityRef.current.z -= velocityRef.current.z * Math.min(1, FRICTION * delta);
-        if (Math.abs(velocityRef.current.x) < 0.001) velocityRef.current.x = 0;
-        if (Math.abs(velocityRef.current.z) < 0.001) velocityRef.current.z = 0;
-      }
+    } else if (effectiveInput) {
+      // Velocity-based movement (WASD or auto-follow chase)
+      const isMoving = true;
+      velocityRef.current.x += (effectiveInput.x * SPEED - velocityRef.current.x) * Math.min(1, ACCEL * delta);
+      velocityRef.current.z += (effectiveInput.z * SPEED - velocityRef.current.z) * Math.min(1, ACCEL * delta);
 
-      const hasVelocity = velocityRef.current.x !== 0 || velocityRef.current.z !== 0;
-      if (hasVelocity) {
-        const newX = pos.x + velocityRef.current.x * delta;
-        const newZ = pos.z + velocityRef.current.z * delta;
-        const newY = navGrid ? getHeightAtWorld(navGrid, newX, newZ) : pos.y;
-        pos = { x: newX, y: newY, z: newZ };
-        rigidBodyRef.current.setTranslation(pos, true);
-      }
-    } else if (!isWASD && mov.mode === 'idle') {
-      // ── No input — decelerate ──
+      const newX = pos.x + velocityRef.current.x * delta;
+      const newZ = pos.z + velocityRef.current.z * delta;
+      const newY = navGrid ? getHeightAtWorld(navGrid, newX, newZ) : pos.y;
+      pos = { x: newX, y: newY, z: newZ };
+      rigidBodyRef.current.setTranslation(pos, true);
+    } else {
+      // No input — decelerate
       velocityRef.current.x -= velocityRef.current.x * Math.min(1, FRICTION * delta);
       velocityRef.current.z -= velocityRef.current.z * Math.min(1, FRICTION * delta);
       if (Math.abs(velocityRef.current.x) < 0.001) velocityRef.current.x = 0;
@@ -276,8 +274,8 @@ export function Player() {
     playerPosition.y = pos.y;
     playerPosition.z = pos.z;
 
-    // ── Server position reconciliation (gentle, only when idle/WASD) ──
-    if (mov.mode !== 'followingPath') {
+    // ── Server position reconciliation (gentle, only when not following path) ──
+    if (moveStateRef.current.mode !== 'followingPath') {
       const snapPos = networkStore.lastSnapshotPos;
       const corrDx = snapPos.x - pos.x;
       const corrDz = snapPos.z - pos.z;
@@ -305,9 +303,10 @@ export function Player() {
 
     // ── Update state machine ──
     const hasVelocity = velocityRef.current.x !== 0 || velocityRef.current.z !== 0;
-    const isMoving = mov.mode === 'followingPath' || (isWASD && (inputDir.x !== 0 || inputDir.z !== 0)) || hasVelocity;
+    const isFollowingPath = moveStateRef.current.mode === 'followingPath';
+    const isMoving = isFollowingPath || !!effectiveInput || hasVelocity;
 
-    const newDir = mov.mode === 'followingPath'
+    const newDir = isFollowingPath
       ? pathDirRef.current
       : hasVelocity
         ? directionFromAngle(velocityRef.current.x, velocityRef.current.z)
@@ -317,7 +316,7 @@ export function Player() {
       smRef.current,
       delta,
       isMoving,
-      hasVelocity || mov.mode === 'followingPath',
+      isFollowingPath || hasVelocity,
       newDir,
       isAttacking,
     );

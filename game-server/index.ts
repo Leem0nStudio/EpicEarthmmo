@@ -410,20 +410,7 @@ io.on('connection', (socket) => {
     }
 
     if (!navGrid) {
-      // No navgrid — direct move
-      const walkSpeedMs = player.walkSpeedMs;
-      player.gridPath = [
-        { gx: 0, gz: 0, cumTimeMs: 0 },
-        { gx: 0, gz: 0, cumTimeMs: walkSpeedMs },
-      ];
-      player.pathStartTime = Date.now();
-      player.lastValidatedCellIdx = 0;
-      const acceptData: MoveAcceptedData = {
-        path: player.gridPath,
-        startTime: player.pathStartTime,
-        walkSpeedMs,
-      };
-      socket.emit('moveAccepted', acceptData);
+      // No navgrid on this map — click-to-move not available
       return;
     }
 
@@ -1796,12 +1783,15 @@ function tick() {
         }
         p.lastValidatedCellIdx = currentIdx;
 
-        if (blocked) {
+        if (blocked || !instance.navGrid) {
           p.gridPath = null;
           p.pathStartTime = 0;
           p.lastValidatedCellIdx = 0;
           p.pendingInteraction = null;
-        } else if (instance.navGrid) {
+          if (blocked) {
+            io.to(p.id).emit('moveBlocked', {});
+          }
+        } else {
           const [wx, wz] = gridToWorld(
             instance.navGrid,
             p.gridPath[currentIdx].gx,
