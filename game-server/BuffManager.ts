@@ -1,4 +1,4 @@
-import type { BuffDefinition, StatModifier, BehaviorModifier, EffectDefinition } from '@/shared/schemas';
+import type { BuffDefinition, StatModifier, BehaviorModifier, EffectDefinition } from '../shared/schemas';
 
 export interface ActiveBuff {
   id: string;

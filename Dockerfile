@@ -10,7 +10,7 @@ COPY lib/ ./lib/
 COPY shared/ ./shared/
 
 ENV NODE_ENV=production
-RUN npx esbuild game-server/index.ts --bundle --platform=node --packages=external --outdir=game-server/dist
+RUN npx esbuild game-server/index.ts --bundle --platform=node --packages=external --outdir=game-server/dist --tsconfig=tsconfig.json
 
 FROM node:20-alpine AS runner
 WORKDIR /app

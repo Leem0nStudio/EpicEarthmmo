@@ -9,7 +9,7 @@ import {
   calculateHit, calculateFlee,
   calculateCritChance, calculateCritMultiplier,
   calculateAtk, calculateMatk, calculateDef, calculateMDef,
-  calculateDeathExpLoss,
+  calculateDeathExpLoss, calculateWalkSpeedMs, processLevelUp,
 } from '../shared/loader/formulaEngine';
 import { MapManager, type RuntimeEnemy } from './MapManager';
 import type { ServerPlayer } from './types';
@@ -18,8 +18,7 @@ import { findPath, smoothPath, getCellAtWorld, worldToGrid, gridToWorld, getCell
 import { SkillEngine } from './SkillEngine';
 import type { BuffableEntity } from './BuffManager';
 import type { GroundEffectTarget } from './GroundEffectManager';
-import type { SpatialEntity } from '@/lib/spatialQuery';
-import { processLevelUp } from '../shared/loader/formulaEngine';
+import type { SpatialEntity } from '../lib/spatialQuery';
 import {
   applyDamagePassive, applySpRegenPassive, getAttackRange,
   shouldTriggerDoubleAttack, applyHealPassive, applyZenyDropPassive,
@@ -29,7 +28,7 @@ import type {
   SkillDefinition, EffectDefinition, EffectFormula,
   GroundEffectDefinition, BuffDefinition,
   JobClass,
-} from '@/shared/schemas';
+} from '../shared/schemas';
 
 // ── Load all game data from JSON files (validated with Zod) ──
 const gameData = loadGameData();

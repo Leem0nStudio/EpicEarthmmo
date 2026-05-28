@@ -1,10 +1,10 @@
 import type {
   SkillDefinition, EffectDefinition, EffectFormula,
   GroundEffectDefinition, BuffDefinition,
-} from '@/shared/schemas';
+} from '../shared/schemas';
 import { BuffManager, type BuffableEntity } from './BuffManager';
 import { GroundEffectManager, type GroundEffectTarget } from './GroundEffectManager';
-import { GridSpatialIndex, type SpatialEntity } from '@/lib/spatialQuery';
+import { GridSpatialIndex, type SpatialEntity } from '../lib/spatialQuery';
 
 export interface SkillCastRequest {
   skillId: string;

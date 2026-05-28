@@ -1,4 +1,4 @@
-import type { NavGrid } from '@/shared/schemas';
+import type { NavGrid } from '../shared/schemas';
 
 export interface SpatialEntity {
   id: string;

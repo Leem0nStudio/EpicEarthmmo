@@ -1,5 +1,5 @@
-import type { GroundEffectDefinition, EffectDefinition } from '@/shared/schemas';
-import { GridSpatialIndex, type SpatialEntity } from '@/lib/spatialQuery';
+import type { GroundEffectDefinition, EffectDefinition } from '../shared/schemas';
+import { GridSpatialIndex, type SpatialEntity } from '../lib/spatialQuery';
 
 export interface ActiveGroundEffect {
   id: string;
