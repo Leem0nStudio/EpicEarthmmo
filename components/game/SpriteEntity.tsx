@@ -131,6 +131,8 @@ export function SpriteEntity({
     }
   });
 
+  const CAMERA_TILT = -Math.atan2(14, 16);
+
   return (
     <group position={[position.x, yPos + depthOffset, position.z]}>
       {isSelected && (
@@ -139,15 +141,17 @@ export function SpriteEntity({
           <meshBasicMaterial color="#ffcc33" transparent opacity={0.6} depthWrite={false} side={2} />
         </mesh>
       )}
-      <mesh ref={meshRef} onClick={onClick} userData={{ raycastable: true }}>
-        <planeGeometry args={[1.5 * scale, 1.5 * scale]} />
-        <meshBasicMaterial
-          transparent
-          opacity={opacity}
-          depthWrite={false}
-          side={2}
-        />
-      </mesh>
+      <group rotation={[CAMERA_TILT, 0, 0]}>
+        <mesh ref={meshRef} onClick={onClick} userData={{ raycastable: true }}>
+          <planeGeometry args={[1.5 * scale, 1.5 * scale]} />
+          <meshBasicMaterial
+            transparent
+            opacity={opacity}
+            depthWrite={false}
+            side={2}
+          />
+        </mesh>
+      </group>
 
       {hpBar && !isDead && (
         <group position={[0, 1.2 * scale, 0]}>

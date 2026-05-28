@@ -163,7 +163,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
   },
 
-  setMap: (mapId, mapName, mapType) => set({ currentMapId: mapId, currentMapName: mapName, currentMapType: mapType }),
+  setMap: (mapId, mapName, mapType) => set({ currentMapId: mapId, currentMapName: mapName, currentMapType: mapType, enemies: {}, selectedTargetId: null, damages: [] }),
   setTargetPosition: (pos) => set({ targetPosition: pos }),
   setPosition: (pos) => set({ position: pos }),
   setInputDirection: (dir) => set({ inputDirection: dir }),

@@ -14,7 +14,12 @@
     "npcTalkRange": 2.0,
     "pathfindingGridSize": 0.5,
     "pathfindingUpdateMs": 200,
-    "stuckTimeoutMs": 3000
+    "stuckTimeoutMs": 3000,
+    "walkSpeedFormula": {
+      "baseMs": 150,
+      "perAgi": 1,
+      "minMs": 75
+    }
   },
   "combat": {
     "attackRange": 3.0,

@@ -240,7 +240,7 @@ function createDefaultPlayer(id: string, name: string): ServerPlayer {
     zeny: 100,
     gridPath: null,
     pathStartTime: 0,
-    walkSpeedMs: balance.movement.walkSpeedMs,
+    walkSpeedMs: calculateWalkSpeedMs(defaultPlayer.baseStats.agi ?? 0, balance),
     lastValidatedCellIdx: 0,
     pendingInteraction: null,
   };
@@ -418,9 +418,9 @@ io.on('connection', (socket) => {
     if (!rawPath || rawPath.length === 0) return;
     const smoothed = smoothPath(navGrid, rawPath);
 
-    const walkSpeedMs = player.walkSpeedMs;
-    const moveDiagCost = balance.movement.moveDiagonalCost ?? 14;
-    const moveCost = balance.movement.moveCost ?? 10;
+    const walkSpeedMs = calculateWalkSpeedMs(player.stats.agi ?? 0, balance);
+    const moveDiagCost = balance.movement.moveDiagonalCost;
+    const moveCost = balance.movement.moveCost;
 
     const gridPath: GridPathStep[] = [];
     for (let i = 0; i < smoothed.length; i++) {

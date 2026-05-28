@@ -11,12 +11,20 @@ export const BalanceSchema = z.object({
   }),
   movement: z.object({
     playerSpeed: z.number().positive(),
+    walkSpeedMs: z.number().positive().default(150),
+    moveDiagonalCost: z.number().positive().default(14),
+    moveCost: z.number().positive().default(10),
     clickMoveRange: z.number().positive().optional().default(30),
     interactRange: z.number().positive().optional().default(2.5),
     npcTalkRange: z.number().positive().optional().default(2),
     pathfindingGridSize: z.number().positive().optional().default(0.5),
     pathfindingUpdateMs: z.number().positive().optional().default(200),
     stuckTimeoutMs: z.number().positive().optional().default(3000),
+    walkSpeedFormula: z.object({
+      baseMs: z.number().positive().default(150),
+      perAgi: z.number().nonnegative().default(1),
+      minMs: z.number().positive().default(75),
+    }).optional(),
   }),
   combat: z.object({
     attackRange: z.number().positive(),

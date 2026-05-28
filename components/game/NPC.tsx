@@ -41,7 +41,6 @@ export function NPC({ id, name, sprite, position }: NPCProps) {
             direction="S"
             width={1.3}
             height={1.3}
-            billboard={false}
           />
           <group position={[0, 0.85, 0]}>
             <Text fontSize={0.16} color="#aef" outlineWidth={0.02} outlineColor="black">

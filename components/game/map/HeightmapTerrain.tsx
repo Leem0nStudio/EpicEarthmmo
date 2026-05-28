@@ -119,11 +119,11 @@ function generateGeometry(navGrid: NavGrid, tiles: Tile[]): THREE.BufferGeometry
       const bl = (gz + 1) * vertexCols + gx;
       const br = (gz + 1) * vertexCols + gx + 1;
       indices[ii++] = tl;
-      indices[ii++] = tr;
       indices[ii++] = bl;
       indices[ii++] = tr;
+      indices[ii++] = tr;
+      indices[ii++] = bl;
       indices[ii++] = br;
-      indices[ii++] = bl;
     }
   }
 

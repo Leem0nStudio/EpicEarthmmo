@@ -219,10 +219,8 @@ export function Player() {
       moveStateRef.current = {
         mode: 'idle', path: [], receiveTime: 0, walkSpeedMs: 150,
       };
-      if (inputSource === 'keyboard') {
-        if (networkStore.socket?.connected) {
-          networkStore.socket.emit('cancelMove');
-        }
+      if (networkStore.socket?.connected) {
+        networkStore.socket.emit('cancelMove');
       }
     }
 
@@ -363,7 +361,6 @@ export function Player() {
           direction={directionRef.current}
           width={1.5}
           height={1.5}
-          billboard
         />
       </group>
     </RigidBody>

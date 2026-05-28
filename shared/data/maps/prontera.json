@@ -44,12 +44,48 @@
   ],
   "warps": [
     {
-      "id": "warp_to_fields",
-      "name": "Prontera Fields",
+      "id": "warp_to_fields_n",
+      "name": "Prontera Fields (North)",
       "position": {
         "x": 0,
         "y": 0.5,
         "z": -35
+      },
+      "targetMapId": "prontera_fields",
+      "targetSpawnId": "warp_from_prontera",
+      "visual": "portal"
+    },
+    {
+      "id": "warp_to_fields_s",
+      "name": "Prontera Fields (South)",
+      "position": {
+        "x": 0,
+        "y": 0.5,
+        "z": 35
+      },
+      "targetMapId": "prontera_fields",
+      "targetSpawnId": "warp_from_prontera",
+      "visual": "portal"
+    },
+    {
+      "id": "warp_to_fields_e",
+      "name": "Prontera Fields (East)",
+      "position": {
+        "x": 35,
+        "y": 0.5,
+        "z": 0
+      },
+      "targetMapId": "prontera_fields",
+      "targetSpawnId": "warp_from_prontera",
+      "visual": "portal"
+    },
+    {
+      "id": "warp_to_fields_w",
+      "name": "Prontera Fields (West)",
+      "position": {
+        "x": -35,
+        "y": 0.5,
+        "z": 0
       },
       "targetMapId": "prontera_fields",
       "targetSpawnId": "warp_from_prontera",

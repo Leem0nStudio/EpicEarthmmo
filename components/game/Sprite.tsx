@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Billboard } from '@react-three/drei';
-import { Group, Mesh, MeshBasicMaterial, DoubleSide } from 'three';
+import { Group, Mesh, MeshBasicMaterial } from 'three';
 import {
   type Direction,
   type AnimState,
@@ -17,12 +16,13 @@ interface SpriteProps {
   direction: Direction;
   width?: number;
   height?: number;
-  billboard?: boolean;
   opacity?: number;
   color?: string;
   onFrameUpdate?: (frame: SpriteFrame) => void;
   children?: React.ReactNode;
 }
+
+const CAMERA_TILT = -Math.atan2(14, 16);
 
 export function Sprite({
   entityId,
@@ -30,7 +30,6 @@ export function Sprite({
   direction,
   width = 1.5,
   height = 1.5,
-  billboard = true,
   opacity = 1,
   color,
   onFrameUpdate,
@@ -89,8 +88,8 @@ export function Sprite({
     }
   });
 
-  const content = (
-    <group>
+  return (
+    <group rotation={[CAMERA_TILT, 0, 0]}>
       <mesh ref={meshRef}>
         <planeGeometry args={[width, height]} />
         <meshBasicMaterial
@@ -103,10 +102,4 @@ export function Sprite({
       {children}
     </group>
   );
-
-  if (billboard) {
-    return <Billboard follow lockX={true} lockY={false} lockZ={true}>{content}</Billboard>;
-  }
-
-  return content;
 }

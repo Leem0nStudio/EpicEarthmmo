@@ -97,7 +97,6 @@ function RemotePlayerSprite({ id, player, bufRef }: { id: string; player: PeerPl
           direction={directionRef.current}
           width={1.2}
           height={1.2}
-          billboard={false}
         />
         <group position={[0, 0.8, 0]}>
           <Text fontSize={0.15} color="white" outlineWidth={0.02} outlineColor="black">

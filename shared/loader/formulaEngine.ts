@@ -19,6 +19,14 @@ export interface CritInfo {
   critMultiplier: number;
 }
 
+// ── Movement: Walk Speed (AGI-based) ──
+export function calculateWalkSpeedMs(agi: number, balance: BalanceConfig): number {
+  const safeAgi = isNaN(agi) ? 0 : Math.max(0, agi);
+  const cfg = balance.movement.walkSpeedFormula;
+  if (!cfg) return balance.movement.walkSpeedMs;
+  return Math.max(cfg.minMs, Math.round(cfg.baseMs - safeAgi * cfg.perAgi));
+}
+
 // ── Combat: Attack Cooldown (AGI-based) ──
 export function calculateAttackCooldownMs(agi: number, balance: BalanceConfig, weaponSpeedModifier = 1): number {
   const safeAgi = isNaN(agi) ? 0 : Math.max(0, agi);
