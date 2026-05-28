@@ -1836,10 +1836,12 @@ function tick() {
           }
         }
       } else {
-        // ── No input — decelerate ──
-        const frictionFactor = Math.min(1, 10 * tickTimeSec);
-        p.vx -= p.vx * frictionFactor;
-        p.vz -= p.vz * frictionFactor;
+        // ── No input — decelerate (Bug 5: 3 sub-steps to match client 60fps) ──
+        const frictionSubStep = Math.min(1, 10 * (tickTimeSec / 3));
+        for (let i = 0; i < 3; i++) {
+          p.vx -= p.vx * frictionSubStep;
+          p.vz -= p.vz * frictionSubStep;
+        }
         if (Math.abs(p.vx) < 0.001) p.vx = 0;
         if (Math.abs(p.vz) < 0.001) p.vz = 0;
       }

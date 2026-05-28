@@ -1,37 +1,19 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useGameStore } from '@/store/useGameStore';
 import { useNetworkStore } from '@/store/useNetworkStore';
 
-const INPUT_RATE_MS = 50;
 const PING_INTERVAL_MS = 2000;
 const LATENCY_REPORT_INTERVAL_MS = 5000;
 
 export function NetworkManager({ playerName, characterId }: { playerName: string; characterId: string | null }) {
   const initSocket = useNetworkStore(state => state.initSocket);
-  const inputSeqRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    inputSeqRef.current = 0;
     initSocket(playerName, characterId);
-
-    const inputInterval = setInterval(() => {
-      const gs = useGameStore.getState();
-      const ns = useNetworkStore.getState();
-
-      if (!ns.socket?.connected) return;
-
-      const dir = gs.inputDirection || { x: 0, z: 0 };
-      inputSeqRef.current++;
-      ns.sendInput({
-        dirX: dir.x,
-        dirZ: dir.z,
-        seq: inputSeqRef.current,
-      });
-    }, INPUT_RATE_MS);
 
     const pingInterval = setInterval(() => {
       const ns = useNetworkStore.getState();
@@ -50,7 +32,6 @@ export function NetworkManager({ playerName, characterId }: { playerName: string
     }, 60000);
 
     return () => {
-      clearInterval(inputInterval);
       clearInterval(pingInterval);
       clearInterval(latencyReportInterval);
       clearInterval(saveInterval);

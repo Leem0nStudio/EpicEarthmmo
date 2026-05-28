@@ -182,7 +182,6 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       for (const [id, sp] of Object.entries(players)) {
         if (id === myId) {
           set({ lastSnapshotPos: { x: sp.x, y: sp.y, z: sp.z } });
-          gs.setPosition({ x: sp.x, y: sp.y, z: sp.z });
         } else {
           const existing = get().remotePlayers[id];
           updatedPlayers[id] = {

@@ -50,7 +50,7 @@ function computeGridPosition(
 ): { x: number; y: number; z: number; animState: AnimState; dir: Direction } | null {
   if (mov.mode !== 'followingPath' || mov.path.length < 2) return null;
 
-  const elapsed = Date.now() - mov.receiveTime;
+  const elapsed = performance.now() - mov.receiveTime;
   if (elapsed < 0) return null;
 
   let currentIdx = 0;
@@ -102,10 +102,20 @@ export function Player() {
   const lastInputSendTimeRef = useRef(0);
   const inputSeqRef = useRef(0);
   const lastSentInputRef = useRef({ x: 0, z: 0 });
+  const hasServerInitRef = useRef(false);
 
   const socket = useNetworkStore(s => s.socket);
   const jobClass = useGameStore(s => s.player.jobClass);
   const entityId = JOB_TO_ENTITY[jobClass] || 'novice_m';
+  const isConnected = useNetworkStore(s => s.isConnected);
+
+  // Track when server init has been received (Bug 8)
+  useEffect(() => {
+    if (!socket) return;
+    const onInit = () => { hasServerInitRef.current = true; };
+    socket.on('init', onInit);
+    return () => { socket.off('init', onInit); };
+  }, [socket]);
 
   // Listen for server moveAccepted / moveCompleted
   useEffect(() => {
@@ -114,10 +124,11 @@ export function Player() {
     const onMoveAccepted = (data: MoveAcceptedData) => {
       if (!data.path || data.path.length < 2) return;
 
+      const networkDelay = Math.max(1, Date.now() - data.startTime);
       moveStateRef.current = {
         mode: 'followingPath',
         path: data.path,
-        receiveTime: data.startTime,
+        receiveTime: performance.now() - networkDelay,
         walkSpeedMs: data.walkSpeedMs,
       };
     };
@@ -149,10 +160,13 @@ export function Player() {
     if (!rigidBodyRef.current) return;
     const navGrid = currentNavGrid.grid;
 
+    // Bug 8: wait for server init before setting position
     if (firstFrameRef.current) {
       firstFrameRef.current = false;
-      const pos = useGameStore.getState().position;
-      rigidBodyRef.current.setTranslation({ x: pos.x, y: pos.y, z: pos.z }, true);
+      if (isConnected && hasServerInitRef.current) {
+        const pos = useGameStore.getState().position;
+        rigidBodyRef.current.setTranslation({ x: pos.x, y: pos.y, z: pos.z }, true);
+      }
     }
 
     const gameStore = useGameStore.getState();
@@ -192,8 +206,11 @@ export function Player() {
     if (!effectiveInput && selectedTargetId) {
       const enemy = enemies[selectedTargetId];
       if (enemy && !enemy.isDead) {
+        // Bug 6: use server snapshot position for range check, not predicted position
+        const checkPos = networkStore.lastSnapshotPos;
+        const checkVec = new Vector3(checkPos.x, checkPos.y, checkPos.z);
         const enemyPos = new Vector3(enemy.position.x, enemy.position.y, enemy.position.z);
-        const dist = currentVec.distanceTo(enemyPos);
+        const dist = checkVec.distanceTo(enemyPos);
 
         if (dist <= ATTACK_RANGE) {
           const now = state.clock.elapsedTime;
@@ -203,8 +220,8 @@ export function Player() {
             networkStore.attackTarget(selectedTargetId);
           }
         } else {
-          const dx = enemy.position.x - pos.x;
-          const dz = enemy.position.z - pos.z;
+          const dx = enemy.position.x - checkPos.x;
+          const dz = enemy.position.z - checkPos.z;
           const len = Math.sqrt(dx * dx + dz * dz);
           if (len > 0.3) {
             effectiveInput = { x: dx / len, z: dz / len };
@@ -232,9 +249,9 @@ export function Player() {
     const now = Date.now();
     const changed = sendX !== lastSentInputRef.current.x || sendZ !== lastSentInputRef.current.z;
     const isActive = sendX !== 0 || sendZ !== 0;
-    if (changed || (isActive && now - lastInputSendTimeRef.current >= 50)) {
+    if (changed || (isActive && Date.now() - lastInputSendTimeRef.current >= 50)) {
       lastSentInputRef.current = { x: sendX, z: sendZ };
-      lastInputSendTimeRef.current = now;
+      lastInputSendTimeRef.current = Date.now();
       if (socket?.connected) {
         socket.emit('input', {
           dirX: sendX, dirZ: sendZ, seq: inputSeqRef.current++,
@@ -244,7 +261,6 @@ export function Player() {
 
     // ── Movement modes ──
     if (moveStateRef.current.mode === 'followingPath' && navGrid) {
-      // RO-style grid path interpolation
       const gridPos = computeGridPosition(moveStateRef.current, navGrid);
       if (gridPos) {
         pos = { x: gridPos.x, y: gridPos.y, z: gridPos.z };
@@ -260,8 +276,6 @@ export function Player() {
       }
       velocityRef.current = { x: 0, z: 0 };
     } else if (effectiveInput) {
-      // Velocity-based movement (WASD or auto-follow chase)
-      const isMoving = true;
       velocityRef.current.x += (effectiveInput.x * SPEED - velocityRef.current.x) * Math.min(1, ACCEL * delta);
       velocityRef.current.z += (effectiveInput.z * SPEED - velocityRef.current.z) * Math.min(1, ACCEL * delta);
 
@@ -271,7 +285,9 @@ export function Player() {
       pos = { x: newX, y: newY, z: newZ };
       rigidBodyRef.current.setTranslation(pos, true);
     } else {
-      // No input — decelerate
+      // Bug 5: match server friction model (10 * tickTimeSec = 0.5 per 50ms tick)
+      // Client runs at ~60fps (16ms) so 3 frames ≈ 1 server tick
+      // Apply friction in same way as server: 10 * delta per frame
       velocityRef.current.x -= velocityRef.current.x * Math.min(1, FRICTION * delta);
       velocityRef.current.z -= velocityRef.current.z * Math.min(1, FRICTION * delta);
       if (Math.abs(velocityRef.current.x) < 0.001) velocityRef.current.x = 0;
@@ -291,8 +307,8 @@ export function Player() {
     playerPosition.y = pos.y;
     playerPosition.z = pos.z;
 
-    // ── Server position reconciliation with lag compensation ──
-    if (moveStateRef.current.mode !== 'followingPath') {
+    // ── Server position reconciliation (always active, Bug 3) ──
+    {
       const snapPos = networkStore.lastSnapshotPos;
       const corrDx = snapPos.x - pos.x;
       const corrDz = snapPos.z - pos.z;
@@ -300,8 +316,17 @@ export function Player() {
 
       const rttSec = networkStore.rtt / 1000;
       const expectedError = SPEED * rttSec;
-      const snapThresholdSq = Math.max(25.0, expectedError * expectedError * 4);
-      const blendThresholdSq = Math.max(1.0, expectedError * expectedError);
+
+      // Bug 7: tighter thresholds
+      // Path following: tighter since errors should be small (just clock drift)
+      // Direct input: slightly looser for prediction errors
+      const isPath = moveStateRef.current.mode === 'followingPath';
+      const snapThresholdSq = isPath
+        ? Math.max(4.0, expectedError * expectedError * 2)
+        : Math.max(9.0, expectedError * expectedError * 4);
+      const blendThresholdSq = isPath
+        ? Math.max(1.0, expectedError * expectedError)
+        : Math.max(2.25, expectedError * expectedError);
 
       if (corrDistSq > snapThresholdSq) {
         const snapY = navGrid ? getHeightAtWorld(navGrid, snapPos.x, snapPos.z) : snapPos.y;
