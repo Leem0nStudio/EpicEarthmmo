@@ -72,8 +72,13 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
     set({ characterId: characterId || null });
     const socketUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL || 'http://localhost:3001';
     const newSocket = io(socketUrl, {
-      transports: ['polling', 'websocket'],
-      query: { playerName }
+      transports: ['websocket', 'polling'],
+      query: { playerName },
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+      timeout: 15000,
     });
 
     newSocket.on('connect', () => {
@@ -102,9 +107,17 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       });
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from game server');
+    newSocket.on('disconnect', (reason) => {
+      console.log('Disconnected from game server:', reason);
       set({ isConnected: false });
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        showToast('Connection lost. Reconnecting...', 'warning');
+      }
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.error('Connection error:', err.message);
+      showToast('Cannot connect to game server. Retrying...', 'error');
     });
 
     newSocket.on('init', (data) => {

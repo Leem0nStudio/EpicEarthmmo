@@ -335,8 +335,15 @@ function processServerLevelUp(player: ServerPlayer, socket: any, io: any): void 
 // ── Express & Socket.io setup ──
 const app = express();
 const httpServer = createServer(app);
-const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || '*';
-const io = new SocketIOServer(httpServer, { cors: { origin: allowedOrigins } });
+const io = new SocketIOServer(httpServer, {
+  cors: {
+    origin: process.env.CORS_ORIGIN === '' || !process.env.CORS_ORIGIN
+      ? '*'
+      : process.env.CORS_ORIGIN.split(',').map(s => s.trim()),
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],
+});
 
 app.get('/health', (_req, res) => {
   let totalPlayers = 0;
