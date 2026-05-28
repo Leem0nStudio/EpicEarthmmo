@@ -99,6 +99,9 @@ export function Player() {
     mode: 'idle', path: [], receiveTime: 0, walkSpeedMs: 150,
   });
   const pathDirRef = useRef<Direction>('S');
+  const lastInputSendTimeRef = useRef(0);
+  const inputSeqRef = useRef(0);
+  const lastSentInputRef = useRef({ x: 0, z: 0 });
 
   const socket = useNetworkStore(s => s.socket);
   const jobClass = useGameStore(s => s.player.jobClass);
@@ -224,6 +227,22 @@ export function Player() {
     }
 
     setInputDirection(effectiveInput || { x: 0, z: 0 });
+
+    // ── Send WASD input to server (throttled) ──
+    const sendX = effectiveInput?.x ?? 0;
+    const sendZ = effectiveInput?.z ?? 0;
+    const now = Date.now();
+    const changed = sendX !== lastSentInputRef.current.x || sendZ !== lastSentInputRef.current.z;
+    const isActive = sendX !== 0 || sendZ !== 0;
+    if (changed || (isActive && now - lastInputSendTimeRef.current >= 50)) {
+      lastSentInputRef.current = { x: sendX, z: sendZ };
+      lastInputSendTimeRef.current = now;
+      if (socket?.connected) {
+        socket.emit('input', {
+          dirX: sendX, dirZ: sendZ, seq: inputSeqRef.current++,
+        });
+      }
+    }
 
     // ── Movement modes ──
     if (moveStateRef.current.mode === 'followingPath' && navGrid) {
