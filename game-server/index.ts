@@ -19,7 +19,6 @@ import { SkillEngine } from './SkillEngine';
 import type { BuffableEntity } from './BuffManager';
 import type { GroundEffectTarget } from './GroundEffectManager';
 import type { SpatialEntity } from '@/lib/spatialQuery';
-import { SaveDataSchema } from '../shared/schemas/gameState';
 import { processLevelUp } from '../shared/loader/formulaEngine';
 import {
   applyDamagePassive, applySpRegenPassive, getAttackRange,
@@ -347,7 +346,6 @@ app.get('/health', (_req, res) => {
 });
 
 // ── Game state ──
-const savedData = new Map<string, any>();
 let tickNum = 0;
 const consecutiveMisses = new Map<string, number>();
 
@@ -355,11 +353,33 @@ const consecutiveMisses = new Map<string, number>();
 io.on('connection', (socket) => {
   let player: ServerPlayer | null = null;
 
-  socket.on('join', (data: { name?: string; stats?: any; unlockedSkills?: string[]; equippedItems?: any }) => {
+  socket.on('join', (data: {
+    name?: string; stats?: any; unlockedSkills?: string[]; equippedItems?: any;
+    inventory?: { itemId: string; amount: number }[];
+    baseLevel?: number; jobLevel?: number; hp?: number; sp?: number;
+    maxHp?: number; maxSp?: number; skillPoints?: number; zeny?: number;
+    baseExp?: number; jobExp?: number; jobClass?: string;
+    skillLevels?: Record<string, number>;
+  }) => {
     player = createDefaultPlayer(socket.id, data.name || 'Player');
     if (data.stats) player.stats = data.stats;
     if (data.unlockedSkills) player.unlockedSkills = data.unlockedSkills;
     if (data.equippedItems) player.equippedItems = data.equippedItems;
+    if (data.inventory) player.inventory = data.inventory;
+    if (data.baseLevel !== undefined) player.baseLevel = data.baseLevel;
+    if (data.jobLevel !== undefined) player.jobLevel = data.jobLevel;
+    if (data.hp !== undefined) player.hp = data.hp;
+    if (data.sp !== undefined) player.sp = data.sp;
+    if (data.maxHp !== undefined) { player.maxHp = data.maxHp; }
+    if (data.maxSp !== undefined) { player.maxSp = data.maxSp; }
+    if (data.skillPoints !== undefined) player.skillPoints = data.skillPoints;
+    if (data.zeny !== undefined) player.zeny = data.zeny;
+    if (data.baseExp !== undefined) player.baseExp = data.baseExp;
+    if (data.jobExp !== undefined) player.jobExp = data.jobExp;
+    if (data.jobClass) player.jobClass = data.jobClass;
+    if (data.skillLevels) player.skillLevels = data.skillLevels;
+    player.hp = Math.min(player.hp, player.maxHp);
+    player.sp = Math.min(player.sp, player.maxSp);
 
     const defaultMapId = 'prontera';
     mapManager.addPlayerToMap(socket.id, player, defaultMapId);
@@ -1386,23 +1406,6 @@ io.on('connection', (socket) => {
       text,
       timestamp: Date.now(),
     });
-  });
-
-  socket.on('saveProgress', (playerData: any) => {
-    if (!player) return;
-    const parsed = SaveDataSchema.safeParse(playerData);
-    if (!parsed.success) {
-      console.warn(`[SaveProgress] Invalid data from ${socket.id}:`, parsed.error.flatten());
-      socket.emit('progressSaved', { success: false, error: 'Invalid save data' });
-      return;
-    }
-    savedData.set(socket.id, parsed.data);
-    socket.emit('progressSaved', { success: true });
-  });
-
-  socket.on('loadProgress', (callback?: (data: any) => void) => {
-    const data = savedData.get(socket.id);
-    if (callback) callback(data || null);
   });
 
   socket.on('disconnect', () => {

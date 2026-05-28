@@ -17,6 +17,7 @@ const { balance } = gameData;
 interface NetworkStore {
   socket: Socket | null;
   isConnected: boolean;
+  characterId: string | null;
   remotePlayers: Record<string, PeerPlayerState>;
   chatMessages: ChatMessage[];
   currentMapData: any | null;
@@ -29,7 +30,7 @@ interface NetworkStore {
   } | null;
   lastSnapshotPos: { x: number; y: number; z: number };
 
-  initSocket: (playerName: string) => void;
+  initSocket: (playerName: string, characterId?: string) => void;
   sendInput: (input: PlayerInput) => void;
   sendMoveToTarget: (data: MoveToTargetData) => void;
   sendChatMessage: (text: string) => void;
@@ -52,6 +53,7 @@ interface NetworkStore {
 export const useNetworkStore = create<NetworkStore>((set, get) => ({
   socket: null,
   isConnected: false,
+  characterId: null,
   remotePlayers: {},
   chatMessages: [],
   currentMapData: null,
@@ -60,10 +62,11 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
   activeTrade: null,
   lastSnapshotPos: { x: 0, y: 0.5, z: 0 },
 
-  initSocket: async (playerName: string) => {
+  initSocket: async (playerName: string, characterId?: string) => {
     if (get().socket?.connected) return;
 
     const { useGameStore } = await import('./useGameStore');
+    set({ characterId: characterId || null });
     const socketUrl = process.env.NEXT_PUBLIC_GAME_SERVER_URL || 'http://localhost:3001';
     const newSocket = io(socketUrl, {
       transports: ['polling', 'websocket'],
@@ -74,7 +77,26 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       console.log('Connected to game server');
       set({ isConnected: true });
       showToast('Connected to server', 'success');
-      newSocket.emit('join', { name: playerName });
+      const gs = useGameStore.getState().player;
+      newSocket.emit('join', {
+        name: playerName,
+        stats: gs.stats,
+        unlockedSkills: gs.unlockedSkills,
+        equippedItems: gs.equippedItems,
+        inventory: gs.inventory?.map(i => ({ itemId: i.id, amount: i.amount })),
+        baseLevel: gs.baseLevel,
+        jobLevel: gs.jobLevel,
+        hp: gs.hp,
+        sp: gs.sp,
+        maxHp: gs.maxHp,
+        maxSp: gs.maxSp,
+        skillPoints: gs.skillPoints,
+        zeny: gs.zeny,
+        baseExp: gs.baseExp,
+        jobExp: gs.jobExp,
+        jobClass: gs.jobClass,
+        skillLevels: gs.skillLevels,
+      });
     });
 
     newSocket.on('disconnect', () => {
@@ -274,16 +296,22 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       if (data.newSp !== undefined) gs.setSp(data.newSp);
       gs.updateEnemyState(data.targetId, { hp: data.hp, isDead: data.isDead });
 
-      if (data.damage > 0) {
-        const enemy = gs.enemies[data.targetId];
-        if (enemy && enemy.position) {
-          const pos = {
-            x: enemy.position.x + (Math.random() * 0.5 - 0.25),
-            y: enemy.position.y + 1,
-            z: enemy.position.z,
-          };
-          gs.addDamageText(data.damage, pos, 'white');
-        }
+      const enemy = gs.enemies[data.targetId];
+      if (data.missed && enemy?.position) {
+        const pos = {
+          x: enemy.position.x + (Math.random() * 0.5 - 0.25),
+          y: enemy.position.y + 1,
+          z: enemy.position.z,
+        };
+        gs.addDamageText(0, pos, '#888888');
+        addCombatLog(`Missed! (${data.targetId})`);
+      } else if (data.damage > 0 && enemy?.position) {
+        const pos = {
+          x: enemy.position.x + (Math.random() * 0.5 - 0.25),
+          y: enemy.position.y + 1,
+          z: enemy.position.z,
+        };
+        gs.addDamageText(data.damage, pos, 'white');
       }
     });
 
@@ -355,10 +383,12 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
     newSocket.on('playerDied', (data) => {
       if (!data) return;
       const gs = useGameStore.getState();
+      gs.setDeathState({ isDead: true, expLost: data.expLost || 0 });
       if (data.respawnPosition) {
         gs.setPosition(data.respawnPosition);
-        showToast('You died! Respawning...', 'error');
       }
+      addCombatLog(`You died! EXP lost: ${data.expLost || 0}`);
+      setTimeout(() => gs.respawn(), 3000);
     });
 
     newSocket.on('groundEffectCreated', (data) => {

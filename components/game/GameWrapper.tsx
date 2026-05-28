@@ -13,12 +13,12 @@ function isDevMode() {
   return process.env.NODE_ENV === 'development' || params.has('dev');
 }
 
-export function GameWrapper({ characterName }: { characterName: string }) {
+export function GameWrapper({ characterName, characterId }: { characterName: string; characterId: string | null }) {
   return (
     <div className="w-full h-full relative bg-black overflow-hidden game-container">
       <OrientationLock />
       <Suspense fallback={null}>
-         <GameScene characterName={characterName} />
+         <GameScene characterName={characterName} characterId={characterId} />
       </Suspense>
       <Joystick />
       <HUD characterName={characterName} />

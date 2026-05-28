@@ -17,6 +17,7 @@ import {
   EquipmentWindow,
   MapNameDisplay
 } from './ui';
+import { DeathScreen } from './DeathScreen';
 import { TradeManager } from './TradeManager';
 import { ChatBox } from './ChatBox';
 import { ToastContainer } from '@/components/ui';
@@ -42,6 +43,7 @@ export function HUD({ characterName }: { characterName?: string }) {
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10 w-full h-full flex flex-col overflow-hidden safe-p p-2 sm:p-4">
+      <DeathScreen />
       <ToastContainer />
       <ExpPopups />
       <MapNameDisplay />

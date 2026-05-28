@@ -98,7 +98,7 @@ export default function Home() {
             className="h-[100dvh] w-full bg-black overflow-hidden touch-none"
           >
             <div className="game-container relative w-full h-full overflow-hidden bg-slate-900">
-               <GameWrapper characterName={selectedCharacter?.state?.name || 'Hero'} />
+               <GameWrapper characterName={selectedCharacter?.state?.name || 'Hero'} characterId={selectedCharacter?.id || null} />
             </div>
           </motion.div>
         )}

@@ -48,13 +48,13 @@ function getDefaultMapData() {
 
 const defaultMap = getDefaultMapData();
 
-export function GameScene({ characterName }: { characterName?: string }) {
+export function GameScene({ characterName, characterId }: { characterName?: string; characterId?: string | null }) {
   const mapType = useNetworkStore(state => state.currentMapData?.mapType);
   const mapData = useNetworkStore(state => state.currentMapData);
 
   return (
     <div className="w-full h-full" style={{ touchAction: 'none' }}>
-      <NetworkManager playerName={characterName || 'Player'} />
+      <NetworkManager playerName={characterName || 'Player'} characterId={characterId || null} />
       <ErrorBoundary>
       <Canvas shadows orthographic dpr={[1, 2]} camera={{ position: [0, 14, 16], near: 0.1, far: 100, left: -10, right: 10, top: 10, bottom: -10 }}>
         <Suspense fallback={null}>

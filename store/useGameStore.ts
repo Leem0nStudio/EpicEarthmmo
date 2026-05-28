@@ -70,6 +70,7 @@ interface GameStore {
   activeSkill: string | null;
   skillCooldowns: Record<string, number>;
   dialogState: DialogState;
+  deathState: { isDead: boolean; expLost: number };
   shopNpcId: string | null;
   enemies: Record<string, EnemyState>;
   damages: DamageText[];
@@ -85,6 +86,8 @@ interface GameStore {
   setInputDirection: (dir: { x: number; z: number }) => void;
   setSelectedTargetId: (id: string | null) => void;
   setDialogState: (state: Partial<DialogState>) => void;
+  setDeathState: (state: Partial<{ isDead: boolean; expLost: number }>) => void;
+  respawn: () => void;
   setActiveSkill: (skillId: string | null) => void;
   setSkillCooldown: (skillId: string, durationMs: number) => void;
   updateEnemyState: (id: string, state: Partial<EnemyState>) => void;
@@ -128,6 +131,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activeSkill: null,
   skillCooldowns: {},
   dialogState: { isOpen: false, dialog: null, currentLineIndex: 0, selectedResponse: null },
+  deathState: { isDead: false, expLost: 0 },
   shopNpcId: null,
   enemies: buildInitialEnemies(),
   damages: [],
@@ -171,6 +175,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     selectedTargetId: id,
   })),
   setDialogState: (state) => set((s) => ({ dialogState: { ...s.dialogState, ...state } })),
+  setDeathState: (state) => set((s) => ({ deathState: { ...s.deathState, ...state } })),
+  respawn: () => set((s) => ({ deathState: { ...s.deathState, isDead: false } })),
   setActiveSkill: (skillId) => set({ activeSkill: skillId }),
   setSkillCooldown: (skillId, durationMs) => set((s) => ({
     skillCooldowns: { ...s.skillCooldowns, [skillId]: Date.now() + durationMs },
@@ -207,13 +213,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 },
               }
             }));
+            get().saveProgress();
           }
         });
       }
     });
   },
 
-  setZeny: (zeny) => set((s) => ({ player: { ...s.player, zeny } })),
+  setZeny: (zeny) => {
+    set((s) => ({ player: { ...s.player, zeny } }));
+    get().saveProgress();
+  },
   setShopNpcId: (npcId) => set({ shopNpcId: npcId }),
 
   buyFromShop: (itemId) => {
@@ -278,6 +288,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 },
               }
             }));
+            get().saveProgress();
           }
         });
       } else {
@@ -311,6 +322,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 skillPoints: res.skillPoints ?? s.player.skillPoints - cost,
               },
             }));
+            get().saveProgress();
           }
         });
       } else {
@@ -343,8 +355,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     };
   }),
 
-  handleLevelUp: (data) => set((state) => {
-    return {
+  handleLevelUp: (data) => {
+    set((state) => ({
       player: {
         ...state.player,
         baseLevel: data.baseLevel,
@@ -361,21 +373,43 @@ export const useGameStore = create<GameStore>((set, get) => ({
           statPoints: (state.player.stats?.statPoints ?? 0) + data.statPointsGain,
         },
       },
-    };
-  }),
+    }));
+    get().saveProgress();
+  },
 
-  gainLoot: (newItems) => set((state) => {
-    const newInventory = [...(state.player.inventory || [])];
-    newItems.forEach(newItem => {
-      const existing = newInventory.find(i => i.id === newItem.id);
-      if (existing) existing.amount += newItem.amount;
-      else newInventory.push(newItem);
+  gainLoot: (newItems) => {
+    set((state) => {
+      const newInventory = [...(state.player.inventory || [])];
+      newItems.forEach(newItem => {
+        const existing = newInventory.find(i => i.id === newItem.id);
+        if (existing) existing.amount += newItem.amount;
+        else newInventory.push(newItem);
+      });
+      return { player: { ...state.player, inventory: newInventory } };
     });
-    return { player: { ...state.player, inventory: newInventory } };
-  }),
+    get().saveProgress();
+  },
 
-  saveProgress: async () => { console.log('Saving...'); },
-  loadProgress: async () => { console.log('Loading...'); },
+  saveProgress: async () => {
+    if (typeof window === 'undefined') return;
+    const { supabase } = await import('@/lib/supabase');
+    const { useNetworkStore } = await import('./useNetworkStore');
+    const characterId = useNetworkStore.getState().characterId;
+    if (!supabase || !characterId) { console.warn('[Save] no supabase or characterId'); return; }
+    const state = get().player;
+    const { error } = await supabase.from('characters').update({ state }).eq('id', characterId);
+    if (error) { console.error('[Save] failed:', error); }
+  },
+  loadProgress: async () => {
+    if (typeof window === 'undefined') return;
+    const { supabase } = await import('@/lib/supabase');
+    const { useNetworkStore } = await import('./useNetworkStore');
+    const characterId = useNetworkStore.getState().characterId;
+    if (!supabase || !characterId) { console.warn('[Load] no supabase or characterId'); return; }
+    const { data, error } = await supabase.from('characters').select('state').eq('id', characterId).single();
+    if (error || !data) { console.error('[Load] failed:', error); return; }
+    get().loadCharacter(data.state);
+  },
   loadCharacter: (characterState) => set((s) => ({
     player: {
       ...INITIAL_PLAYER_STATE,
@@ -404,6 +438,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 },
               };
             });
+            get().saveProgress();
           }
         });
       }
@@ -430,6 +465,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 },
               };
             });
+            get().saveProgress();
           }
         });
       }

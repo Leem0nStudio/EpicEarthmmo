@@ -9,16 +9,18 @@ function DamageNumber({ damage }: { damage: DamageText }) {
   const startTime = useRef(0);
   const initialPos = useRef({ x: damage.position.x, y: damage.position.y, z: damage.position.z });
 
+  const isMiss = damage.amount === 0;
   const isCritical = damage.amount >= 15;
   const color = damage.color || '';
   const isHeal = color.includes('green') || color.includes('4ade80');
   const isPlayerDamage = color.includes('ff4444') || color.includes('red');
 
   const fontSize = useMemo(() => {
+    if (isMiss) return 0.5;
     if (isCritical) return 0.7;
     if (isHeal) return 0.55;
     return 0.45;
-  }, [isCritical, isHeal]);
+  }, [isMiss, isCritical, isHeal]);
 
   useFrame((state) => {
     if (!ref.current) return;
@@ -41,9 +43,9 @@ function DamageNumber({ damage }: { damage: DamageText }) {
     }
   });
 
-  const displayColor = isCritical ? '#ffcc00' : (damage.color || '#ffffff');
+  const displayColor = isMiss ? '#888888' : (isCritical ? '#ffcc00' : (damage.color || '#ffffff'));
   const outlineColor = isCritical ? '#8B4513' : 'black';
-  const outlineWidth = isCritical ? 0.08 : 0.04;
+  const outlineWidth = isCritical ? 0.08 : (isMiss ? 0.03 : 0.04);
 
   return (
     <Text
@@ -58,7 +60,7 @@ function DamageNumber({ damage }: { damage: DamageText }) {
       anchorY="middle"
       material-transparent
     >
-      {isCritical ? `💥 ${damage.amount}` : damage.amount}
+      {isMiss ? 'MISS' : (isCritical ? `${damage.amount}` : damage.amount)}
     </Text>
   );
 }
